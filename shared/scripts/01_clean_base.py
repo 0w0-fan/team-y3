@@ -81,13 +81,20 @@ def main() -> None:
     # ------------------------------------------------------------ 2 文本标准化
     print("[2/6] 文本列去首尾空白（不删行、不改大小写）")
     trim_hits = 0
+    na_hits = 0
     for c in TEXT_COLS:
         before = df[c].copy()
         df[c] = df[c].str.strip()
         # 空字符串视为缺失
         df[c] = df[c].replace("", np.nan)
+        # 原表是 R write.csv 导出的，缺失值写字面量 "NA"（5 行 × 3 列）。
+        # 只在文本列上转 NULL：若保留 "NA" 字符串，
+        # GROUP BY track_artist 会多出一个叫 "NA"、含 5 首歌的假歌手。
+        is_na_literal = df[c].eq("NA")
+        na_hits += int(is_na_literal.sum())
+        df[c] = df[c].mask(is_na_literal, np.nan)
         trim_hits += int((before.fillna("") != df[c].fillna("")).sum())
-    print(f"      被修剪的单元格数 = {trim_hits}")
+    print(f"      被修剪的单元格数 = {trim_hits}，字面量 NA 转 NULL = {na_hits}")
 
     # ------------------------------------------------------------ 3 数值列
     print("[3/6] 数值列转型（只做类型转换，不做任何数值修正）")
@@ -211,10 +218,13 @@ def main() -> None:
 ### 做了
 
 1. 文本列去首尾空白，空字符串统一为 NULL。
-2. 数值列做类型转换（`track_popularity`/`key`/`mode`/`duration_ms` 为整型，其余音频特征为浮点）。
-3. 日期拆成三列：`release_date_std`（标准化字符串）、`release_date_precision`（day/month/year）、`release_year`。
-4. 派生 `release_month`、`duration_sec`、`popularity_level`。
-5. 统一编码为 UTF-8。
+2. **字面量 `NA` 转 NULL**（5 行 × `track_name`/`track_artist`/`track_album_name` 三列）。
+   原表是 R `write.csv` 导出的，缺失值写的是字符串 `NA`。若不转换，`GROUP BY track_artist`
+   会多出一个叫 "NA"、含 5 首歌的假歌手，歌手维度分析直接失真。
+3. 数值列做类型转换（`track_popularity`/`key`/`mode`/`duration_ms` 为整型，其余音频特征为浮点）。
+4. 日期拆成三列：`release_date_std`（标准化字符串）、`release_date_precision`（day/month/year）、`release_year`。
+5. 派生 `release_month`、`duration_sec`、`popularity_level`。
+6. 统一编码为 UTF-8。
 
 ### 刻意没做（每一条都是判断，留给你在报告里写）
 

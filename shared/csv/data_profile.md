@@ -19,6 +19,9 @@
 
 | 列 | 缺失数 | 占比 |
 |---|---|---|
+| `track_name` | 5 | 0.015% |
+| `track_artist` | 5 | 0.015% |
+| `track_album_name` | 5 | 0.015% |
 | `release_month` | 1855 | 5.650% |
 
 ## 三、清洗做了什么（以及刻意没做什么）
@@ -26,10 +29,13 @@
 ### 做了
 
 1. 文本列去首尾空白，空字符串统一为 NULL。
-2. 数值列做类型转换（`track_popularity`/`key`/`mode`/`duration_ms` 为整型，其余音频特征为浮点）。
-3. 日期拆成三列：`release_date_std`（标准化字符串）、`release_date_precision`（day/month/year）、`release_year`。
-4. 派生 `release_month`、`duration_sec`、`popularity_level`。
-5. 统一编码为 UTF-8。
+2. **字面量 `NA` 转 NULL**（5 行 × `track_name`/`track_artist`/`track_album_name` 三列）。
+   原表是 R `write.csv` 导出的，缺失值写的是字符串 `NA`。若不转换，`GROUP BY track_artist`
+   会多出一个叫 "NA"、含 5 首歌的假歌手，歌手维度分析直接失真。
+3. 数值列做类型转换（`track_popularity`/`key`/`mode`/`duration_ms` 为整型，其余音频特征为浮点）。
+4. 日期拆成三列：`release_date_std`（标准化字符串）、`release_date_precision`（day/month/year）、`release_year`。
+5. 派生 `release_month`、`duration_sec`、`popularity_level`。
+6. 统一编码为 UTF-8。
 
 ### 刻意没做（每一条都是判断，留给你在报告里写）
 
