@@ -25,13 +25,8 @@ __pycache__/
 venv/
 
 # ---- 数据文件 ----
-# 原始与清洗后的 CSV 体积较大（7.6MB / 8MB），不进仓库。
-# 放本地 shared/raw/ 与 shared/csv/，用群文件分发。
-# 但 data_profile.md 是纯文本，进仓库。
+# 原始 CSV 体积 7.8 MB，不进仓库，用群文件分发。
 shared/raw/*.csv
-shared/csv/*.csv
-!shared/csv/data_profile.md
-
 # Navicat 导出的 .sql 体积大，不进仓库
 shared/sql/*.sql
 !shared/sql/01_schema.sql

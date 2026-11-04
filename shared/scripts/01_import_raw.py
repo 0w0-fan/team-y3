@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-第二阶段导入 · 把清洗后的 CSV 灌进 MySQL
+把原始 CSV 原样灌进 MySQL（第一阶段不做清洗）
 
 为什么不用 LOAD DATA：
-  本机 MySQL 8.4 的 local_infile = OFF，且 secure_file_priv = NULL，
-  LOAD DATA LOCAL INFILE 会被服务端拒绝。用 pymysql 分批 executemany 走
-  普通 INSERT 通道，不依赖服务端开关，任何机器都能跑。
+  本机 MySQL 8.4 的 local_infile = OFF 且 secure_file_priv = NULL，
+  LOAD DATA LOCAL INFILE 会被服务端拒绝。这里走 pymysql 分批 executemany，
+  不依赖服务端开关，任何机器都能跑。
+
+为什么不做清洗：
+  第一阶段只负责把数据搬进数据库，字段类型按原始数据自然类型给。
+  清洗（去重、日期标准化、空值处理、派生列）是各方向第二阶段自己的事，
+  各自在自己的表或视图上做，不污染公用基础表。
 
 用法：
-    pip install pymysql
-    python shared/scripts/02_import_mysql.py
+    pip install pandas pymysql
+    python shared/scripts/01_import_raw.py
 
 前置：
-    已建库 spotify_dashboard 与表 spotify_songs（执行 shared/sql/01_schema.sql）
+    已建库 spotify_dashboard 与表 spotify_songs
+    （执行 shared/sql/01_schema.sql）
 """
 
 import os
@@ -25,35 +31,35 @@ import pymysql
 sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CSV = os.path.join(ROOT, "shared", "csv", "spotify_songs_clean.csv")
-SQL = os.path.join(ROOT, "shared", "sql", "01_schema.sql")
+CSV = os.path.join(ROOT, "shared", "raw", "spotify_songs.csv")
 
-# 数据库连接：与 application.properties 保持一致
 DB = dict(host="127.0.0.1", port=3306, user="root", password="123456",
           charset="utf8mb4", database="spotify_dashboard")
 
-# CSV 列 -> 表列（顺序即 INSERT 顺序，不含自增主键 id）
+# 原始 23 列，顺序与 CSV 表头一致，不含自增主键 id
 COLS = [
     "track_id", "track_name", "track_artist", "track_popularity",
     "track_album_id", "track_album_name", "track_album_release_date",
     "playlist_name", "playlist_id", "playlist_genre", "playlist_subgenre",
     "danceability", "energy", "key", "loudness", "mode", "speechiness",
     "acousticness", "instrumentalness", "liveness", "valence", "tempo",
-    "duration_ms", "release_date_std", "release_date_precision",
-    "release_year", "release_month", "duration_sec", "popularity_level",
+    "duration_ms",
 ]
 
 EXPECTED_ROWS = 32833
 EXPECTED_TRACKS = 28356
 EXPECTED_ZERO_POP = 2703
-EXPECTED_YEAR_PRECISION = 1855
 
 
 def main() -> None:
     print(f"[1/4] 读取 {CSV}")
     if not os.path.exists(CSV):
-        raise SystemExit("找不到清洗后的 CSV，先跑 01_clean_base.py")
-    df = pd.read_csv(CSV, encoding="utf-8-sig", dtype=str, keep_default_na=False, na_values=[""])
+        raise SystemExit("找不到原始 CSV，先下载到 shared/raw/spotify_songs.csv")
+
+    # 原表是 R write.csv 导出的，缺失值写字面量 "NA"。
+    # 这里不解释它、也不改成 NULL —— 原始数据原样入库，
+    # NA 处理留给各方向第二阶段自己决定。
+    df = pd.read_csv(CSV, encoding="utf-8", dtype=str, keep_default_na=False)
     print(f"      shape = {df.shape}")
 
     missing = [c for c in COLS if c not in df.columns]
@@ -61,9 +67,9 @@ def main() -> None:
         raise SystemExit(f"CSV 缺少列: {missing}")
     df = df[COLS]
 
-    # 空字符串 -> None，让 MySQL 存 NULL 而不是空串
+    # 空字符串 -> None，让 MySQL 存 NULL；其余一律原样保留
     records = [
-        tuple(None if (pd.isna(v) or v == "") else v for v in row)
+        tuple(None if v == "" else v for v in row)
         for row in df.itertuples(index=False, name=None)
     ]
 
@@ -103,21 +109,21 @@ def main() -> None:
             checks.append(("唯一 track_id", cur.fetchone()[0], EXPECTED_TRACKS))
             cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE track_popularity = 0")
             checks.append(("热度为 0", cur.fetchone()[0], EXPECTED_ZERO_POP))
-            cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE release_date_precision = 'year'")
-            checks.append(("仅年份精度", cur.fetchone()[0], EXPECTED_YEAR_PRECISION))
-            cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE track_name IS NULL")
-            checks.append(("曲名为空", cur.fetchone()[0], 5))
-            cur.execute(
-                "SELECT COUNT(*) FROM spotify_songs WHERE release_date_std REGEXP '^[0-9]{4}$'"
-            )
-            checks.append(("日期仅 4 位年份", cur.fetchone()[0], EXPECTED_YEAR_PRECISION))
+            cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE track_name = 'NA'")
+            checks.append(("曲名为字面量 NA", cur.fetchone()[0], 5))
+            cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE playlist_genre = 'edm'")
+            checks.append(("edm 行数", cur.fetchone()[0], 6043))
+            cur.execute("SELECT COUNT(*) FROM spotify_songs WHERE track_album_release_date REGEXP '^[0-9]{4}$'")
+            # 1855 行原表只给到年份。注意不要和 1886 混淆：
+            # 1886 = 1855(仅年份) + 31(仅年月)，是 pandas 无法按 YYYY-MM-DD 解析的总数。
+            checks.append(("日期仅 4 位年份", cur.fetchone()[0], 1855))
 
         ok = True
-        print(f"      {'指标':<18}{'实际':>10}{'期望':>10}  结果")
+        print(f"      {'指标':<20}{'实际':>10}{'期望':>10}  结果")
         for name, actual, expected in checks:
             passed = actual == expected
             ok = ok and passed
-            print(f"      {name:<18}{actual:>10}{expected:>10}  {'OK' if passed else 'FAIL'}")
+            print(f"      {name:<20}{actual:>10}{expected:>10}  {'OK' if passed else 'FAIL'}")
 
         if not ok:
             raise SystemExit("校验未通过，检查导入过程")
