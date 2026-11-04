@@ -9,6 +9,7 @@
 
 | 文件 | 作用 |
 |---|---|
+| `02_build_view.py` | **一键执行脚本**：执行 SQL 建视图，并自动跑一遍校验后打印结果 |
 | `02_member_view.sql` | 建歌曲级去重视图 `artist_track_view`，并派生 `duration_min` / `release_year` / `popularity_level` 三个列 |
 
 两张交互表（`artist_favorite`、`song_tag`）的建表脚本按约定放在 `shared/sql/02_member_tables.sql`。
