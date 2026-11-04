@@ -42,7 +42,8 @@
 │       ├── echarts.min.js      ECharts 5.x 本地库（不引 CDN，断网可用）
 │       └── dashboard.js        六张图初始化 + 两个交互件
 ├── data/                       第二阶段清洗脚本
-│   ├── 02_member_view.sql      歌曲级去重视图 artist_track_view（派生 3 列）
+│   ├── 02_build_view.py        一键建视图 + 自动校验
+│   ├── 02_member_view.sql      视图 DDL：artist_track_view（派生 3 列）
 │   └── README.md
 └── docs/                       个人三件套 .docx 存放目录（本阶段留空）
 ```
@@ -62,7 +63,8 @@ spring.web.resources.static-locations: file:../frontend/,file:./frontend/,classp
 ### 1. 准备数据库（只做一次）
 
 ```bash
-mysql -uroot -p123456 spotify_dashboard < 0w0-fan/data/02_member_view.sql
+cd D:\Project\IDEA	eam-y3
+python 0w0-fan/data/02_build_view.py      # 建视图并自动校验（也可以直接执行同名 .sql）
 mysql -uroot -p123456 spotify_dashboard < shared/sql/02_member_tables.sql
 ```
 
