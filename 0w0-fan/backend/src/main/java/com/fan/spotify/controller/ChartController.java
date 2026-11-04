@@ -63,6 +63,13 @@ public class ChartController {
         return chartService.topSpans(limit);
     }
 
+    /** 图 7：逐年歌曲数 × 平均热度（1957–2019，v2 新增） */
+    @GetMapping("/year/trend")
+    public Map<String, Object> yearTrend(@RequestParam(name = "from", required = false) Integer from,
+                                         @RequestParam(name = "to", required = false) Integer to) {
+        return chartService.yearTrend(from, to);
+    }
+
     /** 图 6：热度 × 时长 全量散点（28,356 点） */
     @GetMapping("/song/scatter")
     public Map<String, Object> scatter() {

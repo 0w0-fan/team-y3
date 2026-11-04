@@ -7,6 +7,7 @@ import com.fan.spotify.dto.ArtistTop;
 import com.fan.spotify.dto.BinCount;
 import com.fan.spotify.dto.Overview;
 import com.fan.spotify.dto.SongPoint;
+import com.fan.spotify.dto.YearPoint;
 import com.fan.spotify.mapper.FavoriteMapper;
 import com.fan.spotify.mapper.SongMapper;
 import com.fan.spotify.mapper.TagMapper;
@@ -135,6 +136,45 @@ public class ChartService {
     /** 图 5：歌手活跃年份跨度 TOP N（作品数 >= 3，两年份均非空） */
     public List<ArtistSpan> topSpans(int limit) {
         return songMapper.selectTopSpans(normalizeLimit(limit, 20, 100));
+    }
+
+    /**
+     * 图 7：逐年歌曲数 × 平均热度（v2 新增）。
+     * 默认区间 1957–2019：2020 年只有 785 行，是抓取时点截断，放进来会让趋势图断崖式下跌。
+     */
+    public Map<String, Object> yearTrend(Integer from, Integer to) {
+        int start = (from == null || from < 1900) ? 1957 : from;
+        int end = (to == null || to > 2100) ? 2019 : to;
+        if (start > end) {
+            int tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        List<YearPoint> points = songMapper.selectYearTrend(start, end);
+
+        int peakYear = 0;
+        int peakSongs = 0;
+        long totalSongs = 0;
+        for (YearPoint p : points) {
+            totalSongs += p.songs;
+            if (p.songs > peakSongs) {
+                peakSongs = p.songs;
+                peakYear = p.year;
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("points", points);
+        result.put("from", start);
+        result.put("to", end);
+        result.put("years", points.size());
+        result.put("totalSongs", totalSongs);
+        result.put("peakYear", peakYear);
+        result.put("peakSongs", peakSongs);
+        result.put("latestYear", points.isEmpty() ? null : points.get(points.size() - 1).year);
+        result.put("latestAvgPop", points.isEmpty() ? null : points.get(points.size() - 1).avgPop);
+        return result;
     }
 
     /** 图 6：热度 × 时长 全量散点（28,356 点） */

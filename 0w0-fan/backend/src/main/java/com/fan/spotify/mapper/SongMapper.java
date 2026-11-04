@@ -7,6 +7,7 @@ import com.fan.spotify.dto.ArtistTop;
 import com.fan.spotify.dto.BinCount;
 import com.fan.spotify.dto.SongPoint;
 import com.fan.spotify.dto.SongBrief;
+import com.fan.spotify.dto.YearPoint;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -48,7 +49,8 @@ public interface SongMapper {
 
     @Select("SELECT track_artist AS name, "
             + "       COUNT(DISTINCT track_id) AS works, "
-            + "       ROUND(AVG(track_popularity), 2) AS avgPop "
+            + "       ROUND(AVG(track_popularity), 2) AS avgPop, "
+            + "       COUNT(DISTINCT track_album_id) AS albumCount "
             + "FROM artist_track_view "
             + "WHERE track_artist IS NOT NULL AND track_artist <> 'NA' "
             + "GROUP BY track_artist "
@@ -120,6 +122,16 @@ public interface SongMapper {
 
     @Select("SELECT duration_min AS x, track_popularity AS y FROM artist_track_view")
     List<SongPoint> selectPopularityDuration();
+
+    /* ---------------- 图 7：逐年歌曲数 × 平均热度（v2 新增） ---------------- */
+
+    @Select("SELECT release_year AS year, "
+            + "       COUNT(DISTINCT track_id) AS songs, "
+            + "       ROUND(AVG(track_popularity), 2) AS avgPop "
+            + "FROM artist_track_view "
+            + "WHERE release_year BETWEEN #{from} AND #{to} "
+            + "GROUP BY release_year ORDER BY release_year")
+    List<YearPoint> selectYearTrend(@Param("from") int from, @Param("to") int to);
 
     /* ---------------- 交互件：歌曲搜索 ---------------- */
 
