@@ -117,6 +117,12 @@ def main() -> None:
             # 1855 行原表只给到年份。注意不要和 1886 混淆：
             # 1886 = 1855(仅年份) + 31(仅年月)，是 pandas 无法按 YYYY-MM-DD 解析的总数。
             checks.append(("日期仅 4 位年份", cur.fetchone()[0], 1855))
+            # 这条校验同时能兜住排序规则问题：若库是 general_ci（大小写不敏感），
+            # COUNT(DISTINCT track_artist) 会掉到 10684，这里就会 FAIL。
+            cur.execute("SELECT COUNT(DISTINCT track_artist) FROM spotify_songs")
+            checks.append(("唯一歌手数(bin)", cur.fetchone()[0], 10693))
+            cur.execute("SELECT COUNT(DISTINCT track_album_name) FROM spotify_songs")
+            checks.append(("唯一专辑名数(bin)", cur.fetchone()[0], 19744))
 
         ok = True
         print(f"      {'指标':<20}{'实际':>10}{'期望':>10}  结果")

@@ -8,8 +8,13 @@
 --        转 DATE 会失败，且转换本身就算一次清洗）。
 --       清洗是每个方向各自在第二阶段做的事。
 --
+-- 排序规则用 utf8mb4_bin（区分大小写），不用 utf8mb4_general_ci。
+--       原因：general_ci 会把 Billing 和 BILLING 当成同一个，
+--       导致 COUNT(DISTINCT track_artist) 从 10,693 掉到 10,684，
+--       专辑名从 19,744 掉到 19,515，歌手/专辑维度分析直接失真。
+--
 -- 用法（Navicat Premium）：
---   1. 新建数据库 spotify_dashboard，字符集 utf8mb4 / 排序 utf8mb4_general_ci
+--   1. 新建数据库 spotify_dashboard，字符集 utf8mb4 / 排序 utf8mb4_bin
 --   2. 在 spotify_dashboard 上执行本文件
 --   3. 导入 shared/raw/spotify_songs.csv 到 spotify_songs 表
 --      编码 UTF-8、分隔符 ,、文本识别符 "、首行为字段名
@@ -18,7 +23,7 @@
 
 CREATE DATABASE IF NOT EXISTS `spotify_dashboard`
   DEFAULT CHARACTER SET utf8mb4
-  COLLATE utf8mb4_general_ci;
+  COLLATE utf8mb4_bin;
 
 USE `spotify_dashboard`;
 
@@ -62,7 +67,7 @@ CREATE TABLE `spotify_songs` (
   KEY `idx_subgenre`     (`playlist_subgenre`),
   KEY `idx_popularity`   (`track_popularity`),
   KEY `idx_album_id`     (`track_album_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
   COMMENT='Spotify 歌曲原始数据，原样入库，32,833 行 × 23 列';
 
 
@@ -71,6 +76,8 @@ CREATE TABLE `spotify_songs` (
 -- =============================================================
 -- SELECT COUNT(*) FROM spotify_songs;                          -- 期望 32833
 -- SELECT COUNT(DISTINCT track_id) FROM spotify_songs;          -- 期望 28356
+-- SELECT COUNT(DISTINCT track_artist) FROM spotify_songs;      -- 期望 10693
+-- SELECT COUNT(DISTINCT track_album_name) FROM spotify_songs;  -- 期望 19744
 -- SELECT COUNT(*) FROM spotify_songs WHERE track_popularity=0; -- 期望 2703
 --
 -- 流派分布：edm 6043 / rap 5746 / pop 5507 / r&b 5431 / latin 5155 / rock 4951

@@ -29,7 +29,7 @@ yyx-golds/  成员工作区
 pip install pandas pymysql
 ```
 
-1. Navicat 里新建库 `spotify_dashboard`（utf8mb4）
+1. Navicat 里新建库 `spotify_dashboard`（字符集 `utf8mb4`，**排序规则 `utf8mb4_bin`**）
 2. 执行 `shared/sql/01_schema.sql` 建表
 3. 把原始 CSV 放到 `shared/raw/spotify_songs.csv`
 4. 运行 `python shared/scripts/01_import_raw.py`
