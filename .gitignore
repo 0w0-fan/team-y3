@@ -30,6 +30,7 @@ shared/raw/*.csv
 # Navicat 导出的 .sql 体积大，不进仓库
 shared/sql/*.sql
 !shared/sql/01_schema.sql
+!shared/sql/02_member_tables.sql
 
 # ---- 日志 ----
 *.log
