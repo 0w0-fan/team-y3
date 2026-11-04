@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1">
+    <title>Spotify 歌手与专辑「产量 - 热度」效率分析大屏</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1120'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2322D3EE' stroke-width='2.5'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<div id="viewport">
+    <div id="stage">
+
+        <!-- ================= 顶栏 ================= -->
+        <header class="topbar">
+            <div class="title-block">
+                <h1>SPOTIFY <em>歌手 / 专辑</em>「产量 - 热度」效率分析</h1>
+                <p>
+                    数据源 <b>TidyTuesday Spotify Songs</b> · MySQL <b>spotify_dashboard.artist_track_view</b> · 全量真实数据实时查询
+                </p>
+            </div>
+            <div class="kpi-row">
+                <div class="kpi">
+                    <div class="kpi-value" id="kpi-rows">--</div>
+                    <div class="kpi-label">歌曲-歌单记录</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-value" id="kpi-songs">--</div>
+                    <div class="kpi-label">去重歌曲</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-value" id="kpi-artists">--</div>
+                    <div class="kpi-label">歌手</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-value" id="kpi-albums">--</div>
+                    <div class="kpi-label">专辑</div>
+                </div>
+                <div class="kpi warm">
+                    <div class="kpi-value" id="kpi-pop">--</div>
+                    <div class="kpi-label">平均热度</div>
+                </div>
+                <div class="kpi purple">
+                    <div class="kpi-value"><span id="kpi-fav">0</span><small>/</small><span id="kpi-tag">0</span></div>
+                    <div class="kpi-label">关注 / 标签</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ================= 主体 ================= -->
+        <div class="main">
+
+            <!-- ---------- 左列 ---------- -->
+            <div class="col col-left">
+
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>歌手作品数长尾分布</h2>
+                        <span class="tag">LOG</span>
+                        <span class="sub">10,692 位歌手 · <b>y 轴对数</b></span>
+                    </div>
+                    <div class="chart" id="chart-distribution"></div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>歌手活跃年份跨度 TOP20</h2>
+                        <span class="tag">TOP20</span>
+                        <span class="sub">作品数 ≥ 3 · 按跨度排序</span>
+                    </div>
+                    <div class="chart" id="chart-span"></div>
+                </section>
+
+            </div>
+
+            <!-- ---------- 中列 ---------- -->
+            <div class="col col-center">
+
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>作品数 × 平均热度 四象限</h2>
+                        <span class="tag">主图</span>
+                        <span class="sub" id="quadrant-sub">作品数 ≥ 3 · 分割线 = 作品中位数 / 均值 42.48</span>
+                    </div>
+                    <div class="chart" id="chart-quadrant"></div>
+                </section>
+
+                <div class="center-bottom">
+
+                    <section class="card">
+                        <div class="card-head">
+                            <span class="dot"></span>
+                            <h2>热度 × 歌曲时长</h2>
+                            <span class="tag">28,356</span>
+                            <span class="sub">全量散点 · large 模式</span>
+                        </div>
+                        <div class="chart" id="chart-scatter"></div>
+                    </section>
+
+                    <section class="card">
+                        <div class="card-head">
+                            <span class="dot"></span>
+                            <h2>专辑曲目数 × 歌曲热度</h2>
+                            <span class="tag">4 箱</span>
+                            <span class="sub">曲目数 ≥ 2 的专辑</span>
+                        </div>
+                        <div class="chart" id="chart-album"></div>
+                    </section>
+
+                </div>
+
+            </div>
+
+            <!-- ---------- 右列 ---------- -->
+            <div class="col col-right">
+
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>平均热度 TOP20 歌手</h2>
+                        <span class="tag">TOP20</span>
+                        <span class="sub">作品数 ≥ 3</span>
+                    </div>
+                    <div class="chart" id="chart-top"></div>
+                </section>
+
+                <!-- 交互件 1：关注歌手 -->
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>关注歌手</h2>
+                        <span class="tag">写库</span>
+                        <span class="sub" id="fav-count">0 条</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="row">
+                            <input type="text" id="fav-name" placeholder="歌手名，如 Billie Eilish" maxlength="128">
+                            <input type="text" id="fav-note" placeholder="备注（可空）" maxlength="128" style="max-width:120px">
+                            <button id="fav-add">关注</button>
+                        </div>
+                        <div class="list" id="fav-list">
+                            <div class="empty">还没有关注的歌手</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 交互件 2：歌曲打标签 -->
+                <section class="card">
+                    <div class="card-head">
+                        <span class="dot"></span>
+                        <h2>歌曲打标签</h2>
+                        <span class="tag">写库</span>
+                        <span class="sub" id="tag-count">0 个标签</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="row">
+                            <input type="text" id="song-q" placeholder="搜歌名或歌手，回车检索">
+                            <button class="ghost" id="song-search">搜索</button>
+                        </div>
+                        <div class="list" id="song-results" style="max-height:88px">
+                            <div class="empty">输入关键词找歌</div>
+                        </div>
+                        <div class="selected-song" id="selected-song" style="display:none">
+                            <span>已选：</span><b id="selected-title"></b>
+                        </div>
+                        <div class="row">
+                            <input type="text" id="tag-input" placeholder="标签，如 循环单曲" maxlength="60">
+                            <button id="tag-add">添加</button>
+                        </div>
+                        <div class="tag-list" id="tag-list">
+                            <div class="empty" style="width:100%">先选一首歌</div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+        </div>
+
+        <div id="toast"></div>
+
+    </div>
+</div>
+
+<script src="js/echarts.min.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
