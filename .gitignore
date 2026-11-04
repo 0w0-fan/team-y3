@@ -1,0 +1,41 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.vscode/
+
+# ---- OS ----
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ---- Python ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ---- 数据文件 ----
+# 原始与清洗后的 CSV 体积较大（7.6MB / 8MB），不进仓库。
+# 放本地 shared/raw/ 与 shared/csv/，用群文件分发。
+# 但 data_profile.md 是纯文本，进仓库。
+shared/raw/*.csv
+shared/csv/*.csv
+!shared/csv/data_profile.md
+
+# Navicat 导出的 .sql 体积大，不进仓库
+shared/sql/*.sql
+!shared/sql/01_schema.sql
+
+# ---- 日志 ----
+*.log
+logs/
