@@ -1,17 +1,17 @@
 /* ============================================================================
- * Spotify 歌手 / 专辑「产量 - 热度」效率分析大屏 · 前端逻辑
+ * Spotify 歌手 / 专辑「产量 - 热度」效率分析大屏 · v2 前端逻辑
  * 纯原生 JS + ECharts（本地文件，无 CDN，断网可用）
- * 所有数据来自后端 /api/*，后端读 MySQL 的 artist_track_view（28,356 行）
+ * 数据全部来自后端 /api/*，后端读 MySQL 的 artist_track_view（28,356 行）
+ * 主题：青蓝（沿用 v1 配色）
  * ========================================================================== */
 (function () {
     'use strict';
 
+    /* ==================================================================
+     * 0. 舞台等比缩放（1920×1080 定稿）
+     * ================================================================== */
     var DESIGN_W = 1920;
     var DESIGN_H = 1080;
-
-    /* ------------------------------------------------------------------
-     * 0. 整屏缩放：1920x1080 设计稿等比缩放到任意窗口，永不出现滚动条
-     * ------------------------------------------------------------------ */
     var stage = document.getElementById('stage');
 
     function fitStage() {
@@ -20,43 +20,53 @@
     }
 
     var NATIVE_SHOT = location.search.indexOf('native=1') >= 0;
-
     if (NATIVE_SHOT) {
-        // 截图取证模式：保留 1920x1080 原始像素，允许滚动
         document.documentElement.classList.add('native-shot');
     } else {
         window.addEventListener('resize', fitStage);
         fitStage();
     }
 
-    /* ------------------------------------------------------------------
-     * 1. 工具
-     * ------------------------------------------------------------------ */
-    var COLORS = {
-        cyan: '#22D3EE',
-        cyanSoft: 'rgba(34,211,238,0.55)',
-        purple: '#A78BFA',
+    /* ==================================================================
+     * 1. 主题与通用工具
+     * ================================================================== */
+    var C = {
+        accent: '#22D3EE',
+        accentDim: 'rgba(34,211,238,0.55)',
+        blue: '#3A7BD5',
         green: '#34D399',
+        purple: '#A78BFA',
+        warm: '#FBBF24',
         pink: '#F472B6',
-        amber: '#FBBF24',
-        slate: '#64748B',
-        dimSlate: '#3E4C63',
-        text: '#DCE7F5',
-        muted: '#7C8DA6'
+        danger: '#F87171',
+        textTitle: '#EAF6FF',
+        textSub: '#7C8DA6',
+        grid: 'rgba(148,163,184,0.12)',
+        axis: 'rgba(148,163,184,0.30)'
     };
 
-    var AXIS_TEXT = { color: COLORS.muted, fontSize: 11 };
-    var SPLIT_LINE = { lineStyle: { color: 'rgba(148,163,184,0.12)' } };
+    /* 系列色板：同屏不超过 6 种（大屏技能规范） */
+    var SERIES = [C.accent, C.blue, C.green, C.purple, C.warm, C.pink];
 
-    function tooltipStyle() {
+    var AXIS_TEXT = { color: C.textSub, fontSize: 11 };
+    var SPLIT = { lineStyle: { color: C.grid } };
+
+    function tip() {
         return {
             backgroundColor: 'rgba(8,17,30,0.94)',
             borderColor: 'rgba(34,211,238,0.35)',
             borderWidth: 1,
             padding: [8, 10],
-            textStyle: { color: COLORS.text, fontSize: 12 },
+            textStyle: { color: '#DCE7F5', fontSize: 12 },
             extraCssText: 'box-shadow:0 6px 24px rgba(0,0,0,.45);border-radius:3px;'
         };
+    }
+
+    function grad(x1, y1, x2, y2, from, to) {
+        return new echarts.graphic.LinearGradient(x1, y1, x2, y2, [
+            { offset: 0, color: from },
+            { offset: 1, color: to }
+        ]);
     }
 
     function num(n) {
@@ -75,8 +85,17 @@
             .replace(/'/g, '&#39;');
     }
 
-    var toastTimer = null;
+    /* 定时器统一登记，标签页隐藏时暂停（大屏要 7×24 小时跑） */
+    function every(ms, fn) {
+        return setInterval(function () {
+            if (document.hidden) {
+                return;
+            }
+            fn();
+        }, ms);
+    }
 
+    var toastTimer = null;
     function toast(message, isError) {
         var el = document.getElementById('toast');
         el.textContent = message;
@@ -99,8 +118,7 @@
                     }
                 }
                 if (!res.ok) {
-                    var msg = (data && data.message) ? data.message : ('HTTP ' + res.status);
-                    throw new Error(msg);
+                    throw new Error((data && data.message) || ('HTTP ' + res.status));
                 }
                 return data;
             });
@@ -115,17 +133,16 @@
         });
     }
 
-    /* KPI 数字滚动 */
+    /* KPI 数字 0 → 目标值滚动（技能规范：1.2s easeOut） */
     function countUp(el, target, decimals) {
-        var start = 0;
-        var duration = 900;
+        var duration = 1200;
         var t0 = performance.now();
         var d = decimals || 0;
 
         function frame(now) {
             var p = Math.min((now - t0) / duration, 1);
             var eased = 1 - Math.pow(1 - p, 3);
-            var v = start + (target - start) * eased;
+            var v = target * eased;
             el.textContent = d > 0 ? v.toFixed(d) : num(Math.round(v));
             if (p < 1) {
                 requestAnimationFrame(frame);
@@ -136,338 +153,211 @@
         requestAnimationFrame(frame);
     }
 
-    /* ------------------------------------------------------------------
-     * 2. 图表：作品数长尾分布（log y）
-     * ------------------------------------------------------------------ */
-    function renderDistribution(data) {
-        var chart = echarts.init(document.getElementById('chart-distribution'));
-        var bins = [];
-        var values = [];
+    /* ==================================================================
+     * 2. 实时时钟
+     * ================================================================== */
+    function pad(n) {
+        return n < 10 ? '0' + n : '' + n;
+    }
 
-        data.forEach(function (d) {
-            bins.push(d.bin);
-            values.push(d.artists);
-        });
+    function tickClock() {
+        var d = new Date();
+        document.getElementById('clock').textContent =
+            d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+            pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    /* ==================================================================
+     * 3. 图 1：逐年歌曲数 × 平均热度（双轴 + 窗口自动巡航）
+     * ================================================================== */
+    function renderTrend(d) {
+        var chart = echarts.init(document.getElementById('chart-trend'));
+        var years = d.points.map(function (p) { return p.year; });
+        var songs = d.points.map(function (p) { return p.songs; });
+        var pops = d.points.map(function (p) { return p.avgPop; });
+
+        var WIN = 24;
+        var start = 0;
 
         chart.setOption({
-            grid: { left: 46, right: 22, top: 34, bottom: 28 },
+            grid: { left: 54, right: 48, top: 30, bottom: 26 },
+            tooltip: Object.assign({
+                trigger: 'axis',
+                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(34,211,238,0.06)' } },
+                formatter: function (ps) {
+                    var i = ps[0].dataIndex;
+                    return '<b>' + years[i] + ' 年</b><br/>歌曲数 <b style="color:' + C.accent + '">' +
+                        num(songs[i]) + '</b> 首<br/>平均热度 <b style="color:' + C.warm + '">' +
+                        pops[i].toFixed(2) + '</b>';
+                }
+            }, tip()),
+            legend: {
+                right: 6,
+                top: 0,
+                itemWidth: 12,
+                itemHeight: 8,
+                textStyle: { color: C.textSub, fontSize: 10 }
+            },
+            xAxis: {
+                type: 'category',
+                data: years,
+                axisLine: { lineStyle: { color: C.axis } },
+                axisTick: { show: false },
+                axisLabel: AXIS_TEXT
+            },
+            yAxis: [
+                {
+                    type: 'value',
+                    name: '歌曲数（首）',
+                    nameTextStyle: { color: C.textSub, fontSize: 10 },
+                    splitLine: SPLIT,
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: Object.assign({}, AXIS_TEXT, {
+                        formatter: function (v) { return v >= 1000 ? (v / 1000) + 'k' : v; }
+                    })
+                },
+                {
+                    type: 'value',
+                    name: '热度',
+                    min: 0,
+                    max: 100,
+                    nameTextStyle: { color: C.textSub, fontSize: 10 },
+                    splitLine: { show: false },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: AXIS_TEXT
+                }
+            ],
+            dataZoom: [{ type: 'inside', xAxisIndex: 0, startValue: years[0], endValue: years[WIN - 1], zoomLock: true }],
+            series: [
+                {
+                    name: '歌曲数',
+                    type: 'bar',
+                    barWidth: '56%',
+                    itemStyle: {
+                        borderRadius: [2, 2, 0, 0],
+                        color: grad(0, 1, 0, 0, 'rgba(34,211,238,0.10)', 'rgba(34,211,238,0.92)')
+                    },
+                    data: songs
+                },
+                {
+                    name: '平均热度',
+                    type: 'line',
+                    yAxisIndex: 1,
+                    smooth: true,
+                    symbol: 'none',
+                    lineStyle: { width: 2.5, color: C.warm, shadowColor: 'rgba(251,191,36,0.65)', shadowBlur: 12 },
+                    areaStyle: { color: grad(0, 0, 0, 1, 'rgba(251,191,36,0.28)', 'rgba(251,191,36,0.02)') },
+                    data: pops
+                }
+            ]
+        });
+
+        // 窗口自动巡航（动效；标签页隐藏时自动暂停）
+        every(1500, function () {
+            var maxStart = Math.max(1, years.length - WIN);
+            start = (start + 1) % maxStart;
+            chart.setOption({
+                dataZoom: [{
+                    startValue: years[start],
+                    endValue: years[Math.min(start + WIN - 1, years.length - 1)]
+                }]
+            });
+        });
+
+        document.getElementById('trend-sub').innerHTML =
+            d.years + ' 年 · 峰值 <b>' + d.peakYear + '</b>（' + num(d.peakSongs) + ' 首）';
+    }
+
+    /* ==================================================================
+     * 4. 图 2：歌手作品数长尾分布（对数轴）
+     * ================================================================== */
+    function renderDistribution(data) {
+        var chart = echarts.init(document.getElementById('chart-dist'));
+        var bins = data.map(function (d) { return d.bin; });
+        var vals = data.map(function (d) { return d.artists; });
+
+        chart.setOption({
+            grid: { left: 48, right: 20, top: 26, bottom: 26 },
             tooltip: Object.assign({
                 trigger: 'axis',
                 axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(34,211,238,0.06)' } },
                 formatter: function (p) {
-                    return '作品数 ' + p[0].name + ' 首<br/>歌手数 <b style="color:' + COLORS.cyan + '">' +
-                        num(p[0].value) + '</b>';
+                    return '作品数 <b>' + p[0].name + '</b> 首<br/>歌手数 <b style="color:' + C.accent + '">' +
+                        num(p[0].value) + '</b> 位';
                 }
-            }, tooltipStyle()),
+            }, tip()),
             xAxis: {
                 type: 'category',
                 data: bins,
-                axisLine: { lineStyle: { color: 'rgba(148,163,184,0.25)' } },
+                axisLine: { lineStyle: { color: C.axis } },
                 axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 11 }),
-                name: '作品数（首）',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10, padding: [0, 0, 0, 6] }
+                axisLabel: AXIS_TEXT
             },
             yAxis: {
                 type: 'log',
                 min: 100,
                 max: 10000,
-                splitLine: SPLIT_LINE,
+                splitLine: SPLIT,
                 axisLine: { show: false },
                 axisTick: { show: false },
                 axisLabel: Object.assign({}, AXIS_TEXT, {
-                    formatter: function (v) {
-                        return v >= 1000 ? (v / 1000) + 'k' : v;
-                    }
+                    formatter: function (v) { return v >= 1000 ? (v / 1000) + 'k' : v; }
                 })
             },
             series: [{
                 type: 'bar',
                 barWidth: '46%',
-                data: values.map(function (v, i) {
-                    var isTail = i === values.length - 1;
+                data: vals.map(function (v, i) {
+                    var tail = i === vals.length - 1;
                     return {
                         value: v,
                         itemStyle: {
                             borderRadius: [2, 2, 0, 0],
-                            color: new echarts.graphic.LinearGradient(0, 1, 0, 0, isTail ? [
-                                { offset: 0, color: 'rgba(251,191,36,0.15)' },
-                                { offset: 1, color: 'rgba(251,191,36,0.95)' }
-                            ] : [
-                                { offset: 0, color: 'rgba(34,211,238,0.12)' },
-                                { offset: 1, color: 'rgba(34,211,238,0.9)' }
-                            ])
+                            color: tail
+                                ? grad(0, 1, 0, 0, 'rgba(251,191,36,0.15)', 'rgba(251,191,36,0.95)')
+                                : grad(0, 1, 0, 0, 'rgba(34,211,238,0.10)', 'rgba(34,211,238,0.9)')
                         }
                     };
                 }),
                 label: {
                     show: true,
                     position: 'top',
-                    color: '#9FB3C8',
                     fontSize: 10,
                     fontFamily: 'Consolas, monospace',
-                    formatter: function (p) {
-                        return num(p.value);
-                    }
+                    color: '#9FB3C8',
+                    formatter: function (p) { return num(p.value); }
                 }
             }]
         });
     }
 
-    /* ------------------------------------------------------------------
-     * 3. 图表：歌手活跃年份跨度 TOP20
-     * ------------------------------------------------------------------ */
-    function renderSpan(rows) {
-        var chart = echarts.init(document.getElementById('chart-span'));
-        var names = rows.map(function (r) { return r.name; });
-        var base = rows.map(function (r) { return Math.max(r.minYear - 1940, 0); });
-
-        chart.setOption({
-            grid: { left: 128, right: 82, top: 10, bottom: 26 },
-            tooltip: Object.assign({
-                trigger: 'axis',
-                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(167,139,250,0.07)' } },
-                formatter: function (params) {
-                    var idx = params[0].dataIndex;
-                    var r = rows[idx];
-                    return '<b>' + esc(r.name) + '</b><br/>活跃年份 ' + r.minYear + ' — ' + r.maxYear +
-                        '<br/>跨度 <b style="color:' + COLORS.purple + '">' + r.span + ' 年</b>' +
-                        '<br/>作品数 ' + r.works;
-                }
-            }, tooltipStyle()),
-            xAxis: {
-                type: 'value',
-                min: 0,
-                max: 90,
-                splitLine: SPLIT_LINE,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, {
-                    formatter: function (v) { return 1940 + v; }
-                }),
-                name: '年份',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10 }
-            },
-            yAxis: {
-                type: 'category',
-                data: names,
-                inverse: true,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, {
-                    fontSize: 10,
-                    width: 118,
-                    overflow: 'truncate',
-                    formatter: function (v) {
-                        return v.length > 16 ? v.slice(0, 15) + '…' : v;
-                    }
-                })
-            },
-            series: [
-                {
-                    name: 'offset',
-                    type: 'bar',
-                    stack: 'span',
-                    silent: true,
-                    itemStyle: { color: 'transparent' },
-                    emphasis: { disabled: true },
-                    data: base
-                },
-                {
-                    name: '跨度',
-                    type: 'bar',
-                    stack: 'span',
-                    barWidth: 9,
-                    data: rows.map(function (r) {
-                        return {
-                            value: r.span,
-                            itemStyle: {
-                                borderRadius: 3,
-                                color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                                    { offset: 0, color: 'rgba(34,211,238,0.95)' },
-                                    { offset: 1, color: 'rgba(167,139,250,0.85)' }
-                                ])
-                            }
-                        };
-                    }),
-                    label: {
-                        show: true,
-                        position: 'right',
-                        fontSize: 10,
-                        fontFamily: 'Consolas, monospace',
-                        color: '#8FA6BF',
-                        formatter: function (p) {
-                            var r = rows[p.dataIndex];
-                            return r.minYear + '–' + r.maxYear + '  (' + r.span + '年)';
-                        }
-                    }
-                }
-            ]
-        });
-    }
-
-    /* ------------------------------------------------------------------
-     * 4. 图表：四象限散点（主图）
-     * ------------------------------------------------------------------ */
-    function renderQuadrant(d) {
-        var chart = echarts.init(document.getElementById('chart-quadrant'));
-        var medianX = d.medianWorks;
-        var splitY = d.globalAvgPop;
-
-        var groups = {
-            star: [],
-            craft: [],
-            volume: [],
-            tail: []
-        };
-
-        d.points.forEach(function (p) {
-            var many = p.works >= medianX;
-            var hot = p.avgPop >= splitY;
-            var key = many ? (hot ? 'star' : 'volume') : (hot ? 'craft' : 'tail');
-            groups[key].push([p.works, p.avgPop, p.name]);
-        });
-
-        var defs = [
-            { key: 'tail', name: '长尾区 · 少且冷', color: 'rgba(148,163,184,0.55)' },
-            { key: 'volume', name: '走量区 · 多但冷', color: 'rgba(251,191,36,0.65)' },
-            { key: 'craft', name: '精品区 · 少而热', color: 'rgba(167,139,250,0.85)' },
-            { key: 'star', name: '明星区 · 多且热', color: COLORS.cyan }
-        ];
-
-        var series = defs.map(function (def) {
-            return {
-                name: def.name,
-                type: 'scatter',
-                symbolSize: def.key === 'star' ? 7 : 5,
-                itemStyle: {
-                    color: def.color,
-                    opacity: def.key === 'tail' ? 0.55 : 0.85,
-                    shadowBlur: def.key === 'star' ? 8 : 0,
-                    shadowColor: 'rgba(34,211,238,0.8)'
-                },
-                emphasis: {
-                    itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 }
-                },
-                data: groups[def.key]
-            };
-        });
-
-        // 分割线 + 象限底色
-        series[0].markLine = {
-            silent: true,
-            symbol: 'none',
-            lineStyle: { color: COLORS.cyanSoft, type: 'dashed', width: 1 },
-            label: {
-                color: '#7C8DA6',
-                fontSize: 10,
-                backgroundColor: 'rgba(8,17,30,0.7)',
-                padding: [2, 4]
-            },
-            data: [
-                {
-                    xAxis: medianX,
-                    label: { formatter: '作品中位 ' + medianX + ' 首', position: 'end' }
-                },
-                {
-                    yAxis: splitY,
-                    label: { formatter: '热度均值 ' + splitY, position: 'insideEndTop' }
-                }
-            ]
-        };
-
-        series[0].markArea = {
-            silent: true,
-            itemStyle: { opacity: 1 },
-            data: [
-                [
-                    { xAxis: 3, yAxis: splitY, itemStyle: { color: 'rgba(167,139,250,0.045)' } },
-                    { xAxis: medianX, yAxis: 100 }
-                ],
-                [
-                    { xAxis: medianX, yAxis: splitY, itemStyle: { color: 'rgba(34,211,238,0.05)' } },
-                    { xAxis: 200, yAxis: 100 }
-                ]
-            ]
-        };
-
-        chart.setOption({
-            grid: { left: 46, right: 20, top: 30, bottom: 34 },
-            legend: {
-                right: 12,
-                top: 2,
-                itemWidth: 8,
-                itemHeight: 8,
-                itemGap: 12,
-                textStyle: { color: COLORS.muted, fontSize: 10 },
-                data: defs.map(function (d2) { return d2.name; })
-            },
-            tooltip: Object.assign({
-                trigger: 'item',
-                formatter: function (p) {
-                    return '<b>' + esc(p.data[2]) + '</b><br/>作品数 <b style="color:' + COLORS.cyan + '">' +
-                        p.data[0] + '</b> 首<br/>平均热度 <b style="color:' + COLORS.amber + '">' +
-                        p.data[1].toFixed(2) + '</b>';
-                }
-            }, tooltipStyle()),
-            xAxis: {
-                type: 'log',
-                min: 3,
-                max: 200,
-                name: '作品数（对数轴）',
-                nameLocation: 'middle',
-                nameGap: 22,
-                nameTextStyle: { color: COLORS.muted, fontSize: 10 },
-                axisLine: { lineStyle: { color: 'rgba(148,163,184,0.25)' } },
-                axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, {
-                    formatter: function (v) { return v; }
-                }),
-                splitLine: { show: false }
-            },
-            yAxis: {
-                type: 'value',
-                min: 0,
-                max: 100,
-                name: '平均热度',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10, padding: [0, 0, 0, -10] },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: AXIS_TEXT,
-                splitLine: SPLIT_LINE
-            },
-            series: series
-        });
-
-        document.getElementById('quadrant-sub').innerHTML =
-            '作品数 ≥ 3 · <b>' + num(d.count) + '</b> 位歌手 · 中位数 ' + medianX + ' / 均值 ' + splitY;
-    }
-
-    /* ------------------------------------------------------------------
-     * 5. 图表：平均热度 TOP20
-     * ------------------------------------------------------------------ */
+    /* ==================================================================
+     * 5. 图 3：平均热度 TOP20（轮播高亮）
+     * ================================================================== */
     function renderTop(rows) {
         var chart = echarts.init(document.getElementById('chart-top'));
-        var names = rows.map(function (r) { return r.name; }).reverse();
-        var vals = rows.map(function (r) { return r.avgPop; }).reverse();
-        var ranked = rows.slice().reverse();
+        var rev = rows.slice().reverse();
+        var names = rev.map(function (r) { return r.name; });
+        var vals = rev.map(function (r) { return r.avgPop; });
 
         chart.setOption({
-            grid: { left: 118, right: 46, top: 8, bottom: 22 },
+            grid: { left: 106, right: 44, top: 6, bottom: 18 },
             tooltip: Object.assign({
                 trigger: 'axis',
                 axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(34,211,238,0.06)' } },
                 formatter: function (p) {
-                    var r = ranked[p[0].dataIndex];
+                    var r = rev[p[0].dataIndex];
                     return '<b>No.' + r.rank + ' ' + esc(r.name) + '</b><br/>平均热度 <b style="color:' +
-                        COLORS.amber + '">' + r.avgPop.toFixed(2) + '</b><br/>作品数 ' + r.works + ' 首';
+                        C.warm + '">' + r.avgPop.toFixed(2) + '</b><br/>作品数 ' + r.works + ' 首';
                 }
-            }, tooltipStyle()),
+            }, tip()),
             xAxis: {
                 type: 'value',
                 min: 0,
                 max: 100,
-                splitLine: SPLIT_LINE,
+                splitLine: SPLIT,
                 axisLine: { show: false },
                 axisTick: { show: false },
                 axisLabel: AXIS_TEXT
@@ -479,26 +369,23 @@
                 axisTick: { show: false },
                 axisLabel: Object.assign({}, AXIS_TEXT, {
                     fontSize: 10,
-                    width: 108,
+                    width: 98,
                     overflow: 'truncate',
-                    formatter: function (v) {
-                        return v.length > 15 ? v.slice(0, 14) + '…' : v;
-                    }
+                    formatter: function (v) { return v.length > 14 ? v.slice(0, 13) + '…' : v; }
                 })
             },
             series: [{
                 type: 'bar',
-                barWidth: '58%',
+                barWidth: '56%',
                 data: vals.map(function (v) {
                     var ratio = Math.max(0, Math.min(1, (v - 40) / 50));
                     return {
                         value: v,
                         itemStyle: {
                             borderRadius: [0, 2, 2, 0],
-                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                                { offset: 0, color: 'rgba(34,211,238,' + (0.25 + ratio * 0.25).toFixed(2) + ')' },
-                                { offset: 1, color: ratio > 0.7 ? COLORS.amber : COLORS.cyan }
-                            ])
+                            color: grad(0, 0, 1, 0,
+                                'rgba(34,211,238,' + (0.28 + ratio * 0.25).toFixed(2) + ')',
+                                ratio > 0.7 ? C.warm : C.accent)
                         }
                     };
                 }),
@@ -512,132 +399,283 @@
                 }
             }]
         });
-    }
 
-    /* ------------------------------------------------------------------
-     * 6. 图表：专辑曲目数 × 歌曲平均热度
-     * ------------------------------------------------------------------ */
-    function renderAlbum(rows) {
-        var chart = echarts.init(document.getElementById('chart-album'));
-        var bins = rows.map(function (r) { return r.bin + ' 首'; });
-        var vals = rows.map(function (r) { return r.avgPop; });
-        var albums = rows.map(function (r) { return r.albums; });
-        var min = Math.min.apply(null, vals) - 2;
-        var max = Math.max.apply(null, vals) + 2;
-
-        chart.setOption({
-            grid: { left: 44, right: 16, top: 34, bottom: 30 },
-            tooltip: Object.assign({
-                trigger: 'axis',
-                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(244,114,182,0.07)' } },
-                formatter: function (p) {
-                    var i = p[0].dataIndex;
-                    return '专辑曲目数 <b>' + rows[i].bin + '</b><br/>专辑数 ' + num(rows[i].albums) +
-                        ' 张<br/>歌曲平均热度 <b style="color:' + COLORS.pink + '">' + rows[i].avgPop.toFixed(2) + '</b>';
-                }
-            }, tooltipStyle()),
-            xAxis: {
-                type: 'category',
-                data: bins,
-                axisLine: { lineStyle: { color: 'rgba(148,163,184,0.25)' } },
-                axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 11 }),
-                name: '专辑曲目数',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10 }
-            },
-            yAxis: {
-                type: 'value',
-                min: Math.floor(min),
-                max: Math.ceil(max),
-                splitLine: SPLIT_LINE,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 })
-            },
-            series: [{
-                type: 'bar',
-                barWidth: '42%',
-                data: vals.map(function (v, i) {
-                    return {
-                        value: v,
-                        itemStyle: {
-                            borderRadius: [3, 3, 0, 0],
-                            color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [
-                                { offset: 0, color: 'rgba(244,114,182,0.12)' },
-                                { offset: 1, color: i === 0 ? 'rgba(244,114,182,0.9)' : 'rgba(167,139,250,0.75)' }
-                            ])
-                        }
-                    };
-                }),
-                label: {
-                    show: true,
-                    position: 'top',
-                    fontSize: 10,
-                    lineHeight: 13,
-                    fontFamily: 'Consolas, monospace',
-                    color: '#9FB3C8',
-                    formatter: function (p) {
-                        return p.value.toFixed(1) + '\n' + num(albums[p.dataIndex]) + '张';
-                    }
-                }
-            }]
+        // 轮播高亮（技能要求的动效之一）
+        var cur = 0;
+        every(2400, function () {
+            chart.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+            chart.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: cur });
+            cur = (cur + 1) % vals.length;
         });
     }
 
-    /* ------------------------------------------------------------------
-     * 7. 图表：热度 × 时长（28,356 点）
-     * ------------------------------------------------------------------ */
-    function renderScatter(d) {
-        var chart = echarts.init(document.getElementById('chart-scatter'));
-        var data = d.points.map(function (p) { return [p.x, p.y]; });
+    /* ==================================================================
+     * 6. 图 4：歌手活跃年份跨度 TOP20
+     * ================================================================== */
+    function renderSpan(rows) {
+        var chart = echarts.init(document.getElementById('chart-span'));
+        var names = rows.map(function (r) { return r.name; });
 
         chart.setOption({
-            grid: { left: 44, right: 16, top: 26, bottom: 30 },
+            grid: { left: 112, right: 76, top: 6, bottom: 22 },
             tooltip: Object.assign({
-                trigger: 'item',
-                formatter: function (p) {
-                    return '时长 <b style="color:' + COLORS.cyan + '">' + p.data[0] + '</b> 分<br/>热度 <b style="color:' +
-                        COLORS.amber + '">' + p.data[1] + '</b>';
+                trigger: 'axis',
+                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(167,139,250,0.07)' } },
+                formatter: function (params) {
+                    var r = rows[params[0].dataIndex];
+                    return '<b>' + esc(r.name) + '</b><br/>活跃年份 ' + r.minYear + ' — ' + r.maxYear +
+                        '<br/>跨度 <b style="color:' + C.purple + '">' + r.span + ' 年</b><br/>作品数 ' + r.works + ' 首';
                 }
-            }, tooltipStyle()),
+            }, tip()),
             xAxis: {
                 type: 'value',
                 min: 0,
-                max: 9,
-                name: '时长（分钟）',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10 },
-                axisLine: { lineStyle: { color: 'rgba(148,163,184,0.25)' } },
+                max: 92,
+                splitLine: SPLIT,
+                axisLine: { show: false },
                 axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 }),
+                axisLabel: Object.assign({}, AXIS_TEXT, {
+                    formatter: function (v) { return 1940 + v; }
+                }),
+                name: '年份',
+                nameTextStyle: { color: C.textSub, fontSize: 10 }
+            },
+            yAxis: {
+                type: 'category',
+                data: names,
+                inverse: true,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: Object.assign({}, AXIS_TEXT, {
+                    fontSize: 10,
+                    width: 104,
+                    overflow: 'truncate',
+                    formatter: function (v) { return v.length > 15 ? v.slice(0, 14) + '…' : v; }
+                })
+            },
+            series: [
+                {
+                    name: 'offset',
+                    type: 'bar',
+                    stack: 'span',
+                    silent: true,
+                    itemStyle: { color: 'transparent' },
+                    emphasis: { disabled: true },
+                    data: rows.map(function (r) { return Math.max(r.minYear - 1940, 0); })
+                },
+                {
+                    name: '跨度',
+                    type: 'bar',
+                    stack: 'span',
+                    barWidth: 9,
+                    data: rows.map(function (r) {
+                        return {
+                            value: r.span,
+                            itemStyle: {
+                                borderRadius: 3,
+                                color: grad(1, 0, 0, 0, 'rgba(34,211,238,0.95)', 'rgba(167,139,250,0.85)')
+                            }
+                        };
+                    }),
+                    label: {
+                        show: true,
+                        position: 'right',
+                        fontSize: 10,
+                        fontFamily: 'Consolas, monospace',
+                        color: '#8FA6BF',
+                        formatter: function (p) {
+                            var r = rows[p.dataIndex];
+                            return r.minYear + '–' + r.maxYear + ' (' + r.span + '年)';
+                        }
+                    }
+                }
+            ]
+        });
+    }
+
+    /* ==================================================================
+     * 7. 图 5（主视觉）：作品数 × 平均热度 四象限气泡
+     *    点大小 = 该歌手专辑数（v2 新维度）
+     * ================================================================== */
+    function renderQuadrant(d) {
+        var chart = echarts.init(document.getElementById('chart-quadrant'));
+        var medianX = d.medianWorks;
+        var splitY = d.globalAvgPop;
+
+        var groups = { star: [], craft: [], volume: [], tail: [] };
+        var maxAlbum = 0;
+
+        d.points.forEach(function (p) {
+            if (p.albumCount > maxAlbum) {
+                maxAlbum = p.albumCount;
+            }
+            var many = p.works >= medianX;
+            var hot = p.avgPop >= splitY;
+            var key = many ? (hot ? 'star' : 'volume') : (hot ? 'craft' : 'tail');
+            groups[key].push([p.works, p.avgPop, p.name, p.albumCount]);
+        });
+
+        function size(val) {
+            var albums = val[3] || 1;
+            return 5 + Math.sqrt(albums / Math.max(maxAlbum, 1)) * 26;
+        }
+
+        var defs = [
+            { key: 'tail', name: '长尾区 · 少且冷', color: 'rgba(148,163,184,0.50)' },
+            { key: 'volume', name: '走量区 · 多但冷', color: 'rgba(251,191,36,0.60)' },
+            { key: 'craft', name: '精品区 · 少而热', color: 'rgba(167,139,250,0.80)' },
+            { key: 'star', name: '明星区 · 多且热', color: C.accent }
+        ];
+
+        var series = defs.map(function (def, idx) {
+            var s = {
+                name: def.name,
+                type: 'scatter',
+                symbolSize: size,
+                itemStyle: {
+                    color: def.color,
+                    opacity: def.key === 'tail' ? 0.5 : 0.8,
+                    borderColor: 'rgba(255,255,255,0.25)',
+                    borderWidth: def.key === 'star' ? 0.6 : 0,
+                    shadowBlur: def.key === 'star' ? 10 : 0,
+                    shadowColor: 'rgba(34,211,238,0.7)'
+                },
+                emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+                data: groups[def.key]
+            };
+            if (idx === 0) {
+                s.markLine = {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: { color: C.accentDim, type: 'dashed', width: 1 },
+                    label: {
+                        color: C.textSub,
+                        fontSize: 10,
+                        backgroundColor: 'rgba(8,17,30,0.75)',
+                        padding: [2, 4]
+                    },
+                    data: [
+                        { xAxis: medianX, label: { formatter: '作品中位 ' + medianX + ' 首', position: 'end' } },
+                        { yAxis: splitY, label: { formatter: '热度均值 ' + splitY, position: 'insideEndTop' } }
+                    ]
+                };
+                s.markArea = {
+                    silent: true,
+                    itemStyle: { opacity: 1 },
+                    data: [
+                        [
+                            { xAxis: 3, yAxis: splitY, itemStyle: { color: 'rgba(167,139,250,0.05)' } },
+                            { xAxis: medianX, yAxis: 100 }
+                        ],
+                        [
+                            { xAxis: medianX, yAxis: splitY, itemStyle: { color: 'rgba(34,211,238,0.06)' } },
+                            { xAxis: 200, yAxis: 100 }
+                        ]
+                    ]
+                };
+            }
+            return s;
+        });
+
+        chart.setOption({
+            grid: { left: 52, right: 22, top: 34, bottom: 40 },
+            animationDuration: 1200,
+            legend: {
+                right: 10,
+                top: 2,
+                itemWidth: 9,
+                itemHeight: 9,
+                itemGap: 14,
+                textStyle: { color: C.textSub, fontSize: 11 },
+                data: defs.map(function (x) { return x.name; })
+            },
+            tooltip: Object.assign({
+                trigger: 'item',
+                formatter: function (p) {
+                    return '<b>' + esc(p.data[2]) + '</b><br/>作品数 <b style="color:' + C.accent + '">' + p.data[0] +
+                        '</b> 首<br/>平均热度 <b style="color:' + C.warm + '">' + p.data[1].toFixed(2) +
+                        '</b><br/>专辑数 <b style="color:' + C.purple + '">' + p.data[3] + '</b> 张';
+                }
+            }, tip()),
+            xAxis: {
+                type: 'log',
+                min: 3,
+                max: 200,
+                name: '作品数（对数轴）',
+                nameLocation: 'middle',
+                nameGap: 26,
+                nameTextStyle: { color: C.textSub, fontSize: 11 },
+                axisLine: { lineStyle: { color: C.axis } },
+                axisTick: { show: false },
+                axisLabel: AXIS_TEXT,
                 splitLine: { show: false }
             },
             yAxis: {
                 type: 'value',
                 min: 0,
                 max: 100,
-                name: '热度',
-                nameTextStyle: { color: COLORS.muted, fontSize: 10, padding: [0, 0, 0, -12] },
+                name: '平均热度',
+                nameTextStyle: { color: C.textSub, fontSize: 11, padding: [0, 0, 0, -14] },
                 axisLine: { show: false },
                 axisTick: { show: false },
-                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 }),
-                splitLine: SPLIT_LINE
+                axisLabel: AXIS_TEXT,
+                splitLine: SPLIT
             },
-            series: [{
-                type: 'scatter',
-                large: true,
-                largeThreshold: 2000,
-                progressive: 5000,
-                symbolSize: 3,
-                itemStyle: { color: 'rgba(34,211,238,0.38)' },
-                emphasis: { itemStyle: { color: COLORS.amber } },
-                data: data
-            }]
+            series: series
         });
+
+        document.getElementById('quadrant-sub').innerHTML =
+            '作品数 ≥ 3 · <b>' + num(d.count) + '</b> 位歌手 · 气泡大小 = 专辑数（最大 ' + maxAlbum + ' 张）';
     }
 
-    /* ------------------------------------------------------------------
-     * 8. 交互件 1：关注歌手
-     * ------------------------------------------------------------------ */
+    /* ==================================================================
+     * 8. 底部滚动流：最新关注 / 标签
+     * ================================================================== */
+    var flowY = 0;
+
+    function renderActivity(items) {
+        var ul = document.getElementById('flow-list');
+        document.getElementById('activity-sub').textContent = '最新 ' + items.length + ' 条';
+
+        if (!items || !items.length) {
+            ul.style.transform = 'translateY(0)';
+            ul.innerHTML = '<li class="empty-row">还没有动态，去右边「关注歌手」或「歌曲打标签」写一条试试</li>';
+            return;
+        }
+
+        var rows = items.map(function (it) {
+            var isFav = it.type === 'favorite';
+            return '<li>' +
+                '<span class="lv lv-' + (isFav ? 'favorite' : 'tag') + '">' + (isFav ? '关注' : '标签') + '</span>' +
+                '<span class="f-time">' + esc((it.time || '').slice(5, 19)) + '</span>' +
+                '<span class="f-title" title="' + esc(it.title) + '">' + esc(it.title) + '</span>' +
+                '<span class="f-detail" title="' + esc(it.detail) + '">' + esc(it.detail || '') + '</span>' +
+                '</li>';
+        }).join('');
+
+        /* 复制一份接在尾部，实现无缝滚动 */
+        ul.innerHTML = rows + rows;
+        flowY = 0;
+        ul.style.transform = 'translateY(0)';
+    }
+
+    function loadActivity() {
+        return getJSON('/api/activity/recent?limit=20').then(renderActivity);
+    }
+
+    every(40, function () {
+        var ul = document.getElementById('flow-list');
+        var half = ul.scrollHeight / 2;
+        if (!half) {
+            return;
+        }
+        flowY = (flowY + 0.8) % half;
+        ul.style.transform = 'translateY(-' + flowY.toFixed(1) + 'px)';
+    });
+
+    /* ==================================================================
+     * 9. 交互件 1：关注歌手
+     * ================================================================== */
     var favorites = [];
 
     function renderFavorites() {
@@ -646,22 +684,20 @@
         document.getElementById('kpi-fav').textContent = favorites.length;
 
         if (!favorites.length) {
-            box.innerHTML = '<div class="empty">还没有关注的歌手</div>';
+            box.innerHTML = '<div class="empty">还没有关注的歌手，搜一个关注试试</div>';
             return;
         }
 
         box.innerHTML = favorites.map(function (f) {
-            return '' +
-                '<div class="item" data-id="' + f.id + '">' +
-                '  <span class="name" title="' + esc(f.artistName) + '">' + esc(f.artistName) + '</span>' +
-                '  <span class="note" data-note="' + esc(f.note || '') + '" title="' + esc(f.note || '') + '">' +
+            return '<div class="item" data-id="' + f.id + '">' +
+                '<span class="name" title="' + esc(f.artistName) + '">' + esc(f.artistName) + '</span>' +
+                '<span class="note" data-note="' + esc(f.note || '') + '" title="' + esc(f.note || '') + '">' +
                 esc(f.note || '—') + '</span>' +
-                '  <span class="time">' + esc((f.createdAt || '').slice(5, 16)) + '</span>' +
-                '  <span class="ops">' +
-                '    <button class="ghost mini" data-act="edit">备注</button>' +
-                '    <button class="danger" data-act="del">删除</button>' +
-                '  </span>' +
-                '</div>';
+                '<span class="time">' + esc((f.createdAt || '').slice(5, 16)) + '</span>' +
+                '<span class="ops">' +
+                '<button class="ghost mini" data-act="edit">备注</button>' +
+                '<button class="danger" data-act="del">删除</button>' +
+                '</span></div>';
         }).join('');
     }
 
@@ -670,6 +706,17 @@
             favorites = rows || [];
             renderFavorites();
         });
+    }
+
+    function afterWrite() {
+        return Promise.all([loadFavorites(), loadActivity(), refreshCounters()]);
+    }
+
+    function refreshCounters() {
+        return getJSON('/api/overview').then(function (o) {
+            document.getElementById('kpi-fav').textContent = o.favorites;
+            document.getElementById('kpi-tag').textContent = o.tags;
+        }).catch(function () { /* 计数刷新失败不影响写库结果 */ });
     }
 
     function addFavorite() {
@@ -688,14 +735,12 @@
                 nameInput.value = '';
                 noteInput.value = '';
                 toast('已关注 ' + name);
-                return Promise.all([loadFavorites(), refreshOverviewCounters()]);
+                return afterWrite();
             })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
-    function editFavoriteNote(item, id) {
+    function editFavoriteNote(item) {
         var noteEl = item.querySelector('.note');
         var ops = item.querySelector('.ops');
         var current = noteEl.getAttribute('data-note') || '';
@@ -717,27 +762,22 @@
         postJSON('/api/favorite/' + id, { note: value }, 'PUT')
             .then(function () {
                 toast('备注已更新');
-                return loadFavorites();
+                return afterWrite();
             })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
     function deleteFavorite(id) {
         getJSON('/api/favorite/' + id, { method: 'DELETE' })
             .then(function () {
                 toast('已取消关注');
-                return Promise.all([loadFavorites(), refreshOverviewCounters()]);
+                return afterWrite();
             })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
     function bindFavorites() {
         document.getElementById('fav-add').addEventListener('click', addFavorite);
-
         document.getElementById('fav-name').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 addFavorite();
@@ -756,7 +796,7 @@
             if (act === 'del') {
                 deleteFavorite(id);
             } else if (act === 'edit') {
-                editFavoriteNote(item, id);
+                editFavoriteNote(item);
             } else if (act === 'save') {
                 saveFavoriteNote(item, id);
             } else if (act === 'cancel') {
@@ -765,14 +805,14 @@
         });
     }
 
-    /* ------------------------------------------------------------------
-     * 9. 交互件 2：歌曲打标签
-     * ------------------------------------------------------------------ */
-    var selectedSong = null;
-    var tagTimer = null;
+    /* ==================================================================
+     * 10. 交互件 2：歌曲打标签
+     * ================================================================== */
+    var pickedSong = null;
+    var searchTimer = null;
 
-    function highlightResult(trackId) {
-        var nodes = document.querySelectorAll('#song-results .search-result');
+    function highlightPick(trackId) {
+        var nodes = document.querySelectorAll('#song-results .pick-item');
         for (var i = 0; i < nodes.length; i++) {
             nodes[i].classList.toggle('active', nodes[i].getAttribute('data-track') === trackId);
         }
@@ -787,18 +827,16 @@
         }
 
         box.innerHTML = rows.map(function (s, i) {
-            return '' +
-                '<div class="search-result" data-track="' + esc(s.trackId) + '" data-name="' + esc(s.trackName) +
+            return '<div class="pick-item" data-track="' + esc(s.trackId) + '" data-name="' + esc(s.trackName) +
                 '" data-artist="' + esc(s.artist) + '">' +
-                '  <span class="rk">' + (i + 1) + '</span>' +
-                '  <span class="song" title="' + esc(s.trackName) + '">' + esc(s.trackName) + '</span>' +
-                '  <span class="artist" title="' + esc(s.artist) + '">' + esc(s.artist) + '</span>' +
-                '  <span class="pop">' + s.popularity + '</span>' +
-                '</div>';
+                '<span class="rk">' + (i + 1) + '</span>' +
+                '<span class="song" title="' + esc(s.trackName) + '">' + esc(s.trackName) + '</span>' +
+                '<span class="artist" title="' + esc(s.artist) + '">' + esc(s.artist) + '</span>' +
+                '<span class="pop">' + s.popularity + '</span></div>';
         }).join('');
 
-        if (selectedSong) {
-            highlightResult(selectedSong.trackId);
+        if (pickedSong) {
+            highlightPick(pickedSong.trackId);
         }
     }
 
@@ -808,23 +846,18 @@
         }
         getJSON('/api/song/search?q=' + encodeURIComponent(keyword) + '&limit=6')
             .then(renderSongResults)
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
-    function selectSong(el) {
-        selectedSong = {
+    function pickSong(el) {
+        pickedSong = {
             trackId: el.getAttribute('data-track'),
             trackName: el.getAttribute('data-name'),
             artist: el.getAttribute('data-artist')
         };
-
-        document.getElementById('selected-song').style.display = 'flex';
-        document.getElementById('selected-title').textContent =
-            selectedSong.trackName + ' · ' + selectedSong.artist;
-
-        highlightResult(selectedSong.trackId);
+        document.getElementById('picked').style.display = 'flex';
+        document.getElementById('picked-title').textContent = pickedSong.trackName + ' · ' + pickedSong.artist;
+        highlightPick(pickedSong.trackId);
         loadTags();
     }
 
@@ -844,24 +877,19 @@
     }
 
     function loadTags() {
-        if (!selectedSong) {
+        if (!pickedSong) {
             return Promise.resolve();
         }
-        return getJSON('/api/tag?trackId=' + encodeURIComponent(selectedSong.trackId))
-            .then(function (rows) {
-                renderTags(rows || []);
-            })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+        return getJSON('/api/tag?trackId=' + encodeURIComponent(pickedSong.trackId))
+            .then(function (rows) { renderTags(rows || []); })
+            .catch(function (e) { toast(e.message, true); });
     }
 
     function addTag() {
-        if (!selectedSong) {
+        if (!pickedSong) {
             toast('先搜索并选中一首歌', true);
             return;
         }
-
         var input = document.getElementById('tag-input');
         var tag = input.value.trim();
 
@@ -871,41 +899,35 @@
             return;
         }
 
-        postJSON('/api/tag', { trackId: selectedSong.trackId, tagName: tag })
+        postJSON('/api/tag', { trackId: pickedSong.trackId, tagName: tag })
             .then(function () {
                 input.value = '';
                 toast('已添加标签「' + tag + '」');
-                return Promise.all([loadTags(), refreshOverviewCounters()]);
+                return Promise.all([loadTags(), loadActivity(), refreshCounters()]);
             })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
     function deleteTag(id) {
         getJSON('/api/tag/' + id, { method: 'DELETE' })
             .then(function () {
                 toast('标签已删除');
-                return Promise.all([loadTags(), refreshOverviewCounters()]);
+                return Promise.all([loadTags(), loadActivity(), refreshCounters()]);
             })
-            .catch(function (e) {
-                toast(e.message, true);
-            });
+            .catch(function (e) { toast(e.message, true); });
     }
 
     function bindTags() {
         var q = document.getElementById('song-q');
 
         q.addEventListener('input', function () {
-            clearTimeout(tagTimer);
+            clearTimeout(searchTimer);
             var keyword = q.value.trim();
             if (!keyword) {
                 document.getElementById('song-results').innerHTML = '<div class="empty">输入关键词找歌</div>';
                 return;
             }
-            tagTimer = setTimeout(function () {
-                searchSongs(keyword);
-            }, 320);
+            searchTimer = setTimeout(function () { searchSongs(keyword); }, 320);
         });
 
         q.addEventListener('keydown', function (e) {
@@ -919,20 +941,18 @@
         });
 
         document.getElementById('song-results').addEventListener('click', function (e) {
-            var row = e.target.closest('.search-result');
+            var row = e.target.closest('.pick-item');
             if (row) {
-                selectSong(row);
+                pickSong(row);
             }
         });
 
         document.getElementById('tag-add').addEventListener('click', addTag);
-
         document.getElementById('tag-input').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 addTag();
             }
         });
-
         document.getElementById('tag-list').addEventListener('click', function (e) {
             var icon = e.target.closest('i[data-id]');
             if (icon) {
@@ -941,18 +961,10 @@
         });
     }
 
-    /* ------------------------------------------------------------------
-     * 10. 概览 KPI
-     * ------------------------------------------------------------------ */
-    function refreshOverviewCounters() {
-        return getJSON('/api/overview').then(function (o) {
-            document.getElementById('kpi-fav').textContent = o.favorites;
-            document.getElementById('kpi-tag').textContent = o.tags;
-        }).catch(function () { /* 计数刷新失败不影响交互结果 */ });
-    }
-
-    function renderOverview(o) {
-        countUp(document.getElementById('kpi-rows'), o.rows);
+    /* ==================================================================
+     * 11. KPI 翻牌
+     * ================================================================== */
+    function renderKPI(o) {
         countUp(document.getElementById('kpi-songs'), o.songs);
         countUp(document.getElementById('kpi-artists'), o.artists);
         countUp(document.getElementById('kpi-albums'), o.albums);
@@ -961,26 +973,27 @@
         document.getElementById('kpi-tag').textContent = o.tags;
     }
 
-    /* ------------------------------------------------------------------
-     * 11. 启动
-     * ------------------------------------------------------------------ */
+    /* ==================================================================
+     * 12. 启动
+     * ================================================================== */
     function boot() {
+        tickClock();
+        every(1000, tickClock);
+
         Promise.all([
             getJSON('/api/overview'),
-            getJSON('/api/artist/quadrant'),
+            getJSON('/api/year/trend'),
             getJSON('/api/artist/distribution'),
             getJSON('/api/artist/top?limit=20'),
-            getJSON('/api/album/bins'),
             getJSON('/api/artist/span?limit=20'),
-            getJSON('/api/song/scatter')
+            getJSON('/api/artist/quadrant')
         ]).then(function (res) {
-            renderOverview(res[0]);
-            renderQuadrant(res[1]);
+            renderKPI(res[0]);
+            renderTrend(res[1]);
             renderDistribution(res[2]);
             renderTop(res[3]);
-            renderAlbum(res[4]);
-            renderSpan(res[5]);
-            renderScatter(res[6]);
+            renderSpan(res[4]);
+            renderQuadrant(res[5]);
         }).catch(function (e) {
             toast('数据加载失败：' + e.message, true);
             console.error(e);
@@ -989,9 +1002,8 @@
         bindFavorites();
         bindTags();
 
-        loadFavorites().catch(function (e) {
-            toast('关注列表加载失败：' + e.message, true);
-        });
+        loadFavorites().catch(function (e) { toast('关注列表加载失败：' + e.message, true); });
+        loadActivity().catch(function (e) { toast('动态流加载失败：' + e.message, true); });
     }
 
     if (document.readyState === 'loading') {
