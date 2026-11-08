@@ -1,24 +1,24 @@
-/* ==========================================================================
-   Spotify 歌手 / 专辑「产量 - 热度」效率分析大屏
-   设计稿 1920 x 1080，整屏等比缩放，不出现滚动条
-   ========================================================================== */
+/* ============================================================================
+ * Spotify 歌手 / 专辑「产量 - 热度」效率分析大屏 · v2
+ * 设计稿 1920×1080，等比缩放，单屏无滚动条
+ * 主题：青蓝（沿用 v1 配色，按大屏技能规范重写为成套主题变量）
+ * ========================================================================== */
 
 :root {
-    --bg-deep: #060A12;
-    --bg: #0B1120;
-    --panel: rgba(13, 25, 43, 0.92);
-    --panel-2: rgba(9, 17, 31, 0.92);
-    --line: rgba(34, 211, 238, 0.20);
-    --line-soft: rgba(148, 163, 184, 0.14);
-    --cyan: #22D3EE;
-    --cyan-dim: rgba(34, 211, 238, 0.55);
-    --purple: #A78BFA;
-    --green: #34D399;
-    --pink: #F472B6;
-    --amber: #FBBF24;
-    --red: #F87171;
-    --text: #DCE7F5;
-    --muted: #7C8DA6;
+    /* 主题变量：技能 color-themes 规范 + v1 的青蓝取值 */
+    --bg-main: #070C16;
+    --bg-panel: rgba(13, 25, 43, 0.92);
+    --bg-panel-2: rgba(9, 17, 31, 0.92);
+    --border-glow: rgba(34, 211, 238, 0.22);
+    --border-soft: rgba(148, 163, 184, 0.14);
+    --text-title: #EAF6FF;
+    --text-main: #DCE7F5;
+    --text-sub: #7C8DA6;
+    --accent: #22D3EE;
+    --accent-warn: #FBBF24;
+    --accent-danger: #F87171;
+    --accent-purple: #A78BFA;
+    --accent-green: #34D399;
 }
 
 * {
@@ -32,9 +32,9 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: var(--bg-deep);
-    color: var(--text);
-    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
 }
@@ -42,11 +42,11 @@ body {
 body {
     background-image:
         radial-gradient(1200px 600px at 50% -10%, rgba(34, 211, 238, 0.10), transparent 70%),
-        radial-gradient(900px 500px at 100% 110%, rgba(167, 139, 250, 0.08), transparent 70%),
+        radial-gradient(900px 520px at 100% 112%, rgba(167, 139, 250, 0.08), transparent 70%),
         linear-gradient(180deg, #060A12 0%, #0A1120 55%, #060A12 100%);
 }
 
-/* ---------- 舞台：固定 1920x1080，等比缩放到窗口 ---------- */
+/* ---------- 舞台：1920×1080 定稿 + 等比缩放 ---------- */
 
 #viewport {
     position: fixed;
@@ -60,14 +60,11 @@ body {
     top: 50%;
     width: 1920px;
     height: 1080px;
-    padding: 20px 24px 22px;
     transform-origin: center center;
-    display: grid;
-    grid-template-rows: 88px 1fr;
-    gap: 14px;
+    /* 不用 grid / padding：顶栏与画布都绝对定位，画布坐标原点 = 舞台左上角，
+       这样面板坐标（16 / 532 / 1402…）和顶栏的 16px 边距天然对齐 */
 }
 
-/* 网格底纹 */
 #stage::before {
     content: "";
     position: absolute;
@@ -76,22 +73,29 @@ body {
         linear-gradient(rgba(34, 211, 238, 0.045) 1px, transparent 1px),
         linear-gradient(90deg, rgba(34, 211, 238, 0.045) 1px, transparent 1px);
     background-size: 48px 48px;
-    mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 85%);
-    -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 85%);
+    mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 86%);
+    -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 86%);
     pointer-events: none;
 }
 
-/* ---------- 顶栏 ---------- */
+/* ---------- 顶部标题栏 ---------- */
 
 .topbar {
-    position: relative;
+    position: absolute;
+    /* 比面板多出 8px（面板从 16px 起，顶栏从 8px 起），左右对称、层次感更强；
+       并且必须压住画布，否则画布会盖在按钮上，点不动「自定义」 */
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    height: 72px;
+    z-index: 30;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 18px;
-    background: linear-gradient(90deg, rgba(9, 20, 36, 0.2), rgba(12, 26, 46, 0.85) 18%, rgba(12, 26, 46, 0.85) 82%, rgba(9, 20, 36, 0.2));
-    border: 1px solid var(--line);
-    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+    padding: 0 20px;
+    background: linear-gradient(90deg, rgba(9, 20, 36, 0.25), rgba(12, 26, 46, 0.88) 16%, rgba(12, 26, 46, 0.88) 84%, rgba(9, 20, 36, 0.25));
+    border: 1px solid var(--border-glow);
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
 }
 
 .topbar::after {
@@ -101,211 +105,182 @@ body {
     right: 0;
     bottom: -1px;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-    opacity: 0.55;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
 }
 
-.title-block {
+.topbar-left {
+    min-width: 300px;
+}
+
+.brand {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.title-block h1 {
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: #EAF6FF;
-    text-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
-}
-
-.title-block h1 em {
-    font-style: normal;
-    color: var(--cyan);
-}
-
-.title-block p {
-    font-size: 12px;
-    letter-spacing: 1px;
-    color: var(--muted);
-}
-
-.title-block p b {
-    color: var(--cyan-dim);
-    font-weight: 500;
-}
-
-.kpi-row {
-    display: flex;
-    align-items: stretch;
-    gap: 10px;
-    height: 62px;
-}
-
-.kpi {
-    min-width: 108px;
-    padding: 8px 14px 6px;
-    background: linear-gradient(180deg, rgba(34, 211, 238, 0.10), rgba(34, 211, 238, 0.02));
-    border: 1px solid var(--line);
-    border-radius: 3px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-}
-
-.kpi .kpi-value {
-    font-family: "Consolas", "Menlo", monospace;
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.05;
-    color: var(--cyan);
-    text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
-}
-
-.kpi .kpi-value small {
-    font-size: 11px;
-    color: var(--muted);
-    margin-left: 2px;
-}
-
-.kpi .kpi-label {
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 1px;
-}
-
-.kpi.warm .kpi-value {
-    color: var(--amber);
-    text-shadow: 0 0 12px rgba(251, 191, 36, 0.45);
-}
-
-.kpi.purple .kpi-value {
-    color: var(--purple);
-    text-shadow: 0 0 12px rgba(167, 139, 250, 0.45);
-}
-
-/* ---------- 主体三列 ---------- */
-
-.main {
-    display: grid;
-    grid-template-columns: 460px 1fr 470px;
-    gap: 14px;
-    min-height: 0;
-}
-
-.col {
-    display: grid;
-    gap: 14px;
-    min-height: 0;
-}
-
-.col-left {
-    grid-template-rows: 1fr 1fr;
-}
-
-.col-center {
-    grid-template-rows: 566px 1fr;
-}
-
-.col-right {
-    grid-template-rows: 370px 252px 1fr;
-}
-
-.center-bottom {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    min-height: 0;
-}
-
-/* ---------- 卡片 ---------- */
-
-.card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 10px 12px 6px;
-    background: linear-gradient(165deg, var(--panel), var(--panel-2));
-    border: 1px solid var(--line-soft);
-    border-radius: 4px;
-    box-shadow: inset 0 0 40px rgba(34, 211, 238, 0.04), 0 6px 24px rgba(0, 0, 0, 0.35);
-}
-
-/* 左上 / 右下 角标 */
-.card::before,
-.card::after {
-    content: "";
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: var(--cyan);
-    opacity: 0.75;
-    pointer-events: none;
-}
-
-.card::before {
-    left: -1px;
-    top: -1px;
-    border-left: 2px solid;
-    border-top: 2px solid;
-}
-
-.card::after {
-    right: -1px;
-    bottom: -1px;
-    border-right: 2px solid;
-    border-bottom: 2px solid;
-}
-
-.card-head {
-    display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
-    padding-bottom: 4px;
-    flex: none;
 }
 
-.card-head .dot {
-    width: 6px;
-    height: 6px;
+.brand-dot {
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    background: var(--cyan);
-    box-shadow: 0 0 10px var(--cyan);
-    transform: translateY(-2px);
-    flex: none;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
 }
 
-.card-head h2 {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    color: #E8F4FF;
+.brand-text {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
+}
+
+.brand-sub {
+    margin-top: 3px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--text-sub);
+}
+
+.topbar-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    color: var(--text-title);
+    text-shadow: 0 0 22px rgba(34, 211, 238, 0.5);
     white-space: nowrap;
 }
 
-.card-head .tag {
+.topbar-right {
+    text-align: right;
+}
+
+.clock-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    letter-spacing: 0.5px;
+}
+
+.clock {
+    margin-top: 3px;
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+    text-shadow: 0 0 14px rgba(34, 211, 238, 0.5);
+}
+
+/* ---------- 三栏 ---------- */
+
+.canvas {
+    /* 面板画布：铺满整个舞台，坐标原点与舞台一致；卡片位置由 layout.js 管理 */
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;              /* 必须在顶栏之下，否则会挡住顶栏按钮的点击 */
+}
+
+/* ---------- 面板（卡片）：技能 panel 规范 + 四角装饰 ---------- */
+
+.panel {
+    position: absolute;          /* 左上角坐标由 layout.js 写 style，实现自由拖动/缩放 */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 10px 12px 8px;
+    background: linear-gradient(165deg, var(--bg-panel), var(--bg-panel-2));
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    box-shadow: inset 0 0 34px rgba(34, 211, 238, 0.05), 0 6px 22px rgba(0, 0, 0, 0.34);
+}
+
+/* 四角描边：一个伪元素画四个角，避免额外 DOM */
+.panel::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    pointer-events: none;
+    opacity: 0.8;
+    background:
+        linear-gradient(var(--accent), var(--accent)) left top / 13px 2px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) left top / 2px 13px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) right top / 13px 2px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) right top / 2px 13px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) left bottom / 13px 2px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) left bottom / 2px 13px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) right bottom / 13px 2px no-repeat,
+        linear-gradient(var(--accent), var(--accent)) right bottom / 2px 13px no-repeat;
+}
+
+.panel-main {
+    box-shadow: inset 0 0 60px rgba(34, 211, 238, 0.07), 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    flex: none;
+}
+
+/* 标题前置 4px 强调色短竖条（技能规范） */
+.panel-head h2 {
+    position: relative;
+    padding-left: 11px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: var(--text-title);
+    white-space: nowrap;
+}
+
+.panel-head h2::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 14px;
+    border-radius: 1px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+.badge {
     font-size: 10px;
     letter-spacing: 0.5px;
-    color: var(--cyan-dim);
-    border: 1px solid var(--line);
+    color: rgba(34, 211, 238, 0.85);
+    border: 1px solid var(--border-glow);
     border-radius: 2px;
     padding: 1px 5px;
     white-space: nowrap;
 }
 
-.card-head .sub {
+.badge.accent {
+    color: #04121C;
+    background: linear-gradient(180deg, #38E0F5, #17B6D4);
+    border-color: transparent;
+}
+
+.head-sub {
     margin-left: auto;
     font-size: 11px;
-    color: var(--muted);
+    color: var(--text-sub);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.card-head .sub b {
-    color: var(--cyan-dim);
+.head-sub b {
+    color: rgba(34, 211, 238, 0.9);
     font-weight: 500;
 }
 
@@ -315,14 +290,85 @@ body {
     width: 100%;
 }
 
-/* ---------- 交互面板 ---------- */
+/* ---------- KPI 翻牌区 ---------- */
 
-.panel-body {
+.kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    min-height: 0;
+}
+
+.kpi {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.10), rgba(34, 211, 238, 0.02));
+    border: 1px solid var(--border-glow);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.kpi::after {
+    content: "";
+    position: absolute;
+    right: -30px;
+    bottom: -30px;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.16), transparent 70%);
+}
+
+.kpi-value {
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 16px rgba(34, 211, 238, 0.45);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+/* 单位缩到数值的 40%（技能规范） */
+.kpi-value small {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-sub);
+}
+
+.kpi-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text-sub);
+}
+
+.kpi.warm .kpi-value {
+    color: var(--accent-warn);
+    text-shadow: 0 0 16px rgba(251, 191, 36, 0.42);
+}
+
+.kpi.purple .kpi-value {
+    color: var(--accent-purple);
+    text-shadow: 0 0 16px rgba(167, 139, 250, 0.42);
+}
+
+.kpi.purple .kpi-value small {
+    color: rgba(167, 139, 250, 0.6);
+}
+
+/* ---------- 表单 / 列表 ---------- */
+
+.form-body {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 7px;
 }
 
 .row {
@@ -334,10 +380,10 @@ body {
 input[type="text"] {
     flex: 1;
     min-width: 0;
-    height: 28px;
-    padding: 0 8px;
+    height: 30px;
+    padding: 0 9px;
     font-size: 12px;
-    color: var(--text);
+    color: var(--text-main);
     background: rgba(6, 14, 26, 0.85);
     border: 1px solid rgba(34, 211, 238, 0.22);
     border-radius: 2px;
@@ -346,18 +392,22 @@ input[type="text"] {
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+input[type="text"].short {
+    max-width: 92px;
+}
+
 input[type="text"]::placeholder {
     color: #4B5A70;
 }
 
 input[type="text"]:focus {
-    border-color: var(--cyan-dim);
+    border-color: rgba(34, 211, 238, 0.6);
     box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.10);
 }
 
 button {
-    height: 28px;
-    padding: 0 12px;
+    height: 30px;
+    padding: 0 14px;
     font-size: 12px;
     font-family: inherit;
     letter-spacing: 1px;
@@ -379,9 +429,10 @@ button:active {
 }
 
 button.ghost {
-    color: var(--cyan);
+    color: var(--accent);
     background: transparent;
     border: 1px solid rgba(34, 211, 238, 0.35);
+    padding: 0 10px;
 }
 
 button.ghost:hover {
@@ -389,13 +440,13 @@ button.ghost:hover {
 }
 
 button.danger {
-    color: var(--red);
-    background: transparent;
-    border: 1px solid rgba(248, 113, 113, 0.35);
-    padding: 0 8px;
     height: 22px;
+    padding: 0 8px;
     font-size: 11px;
     letter-spacing: 0;
+    color: var(--accent-danger);
+    background: transparent;
+    border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
 button.danger:hover {
@@ -420,17 +471,20 @@ button.mini {
     padding-right: 4px;
 }
 
-.list::-webkit-scrollbar {
+.pick-list {
+    max-height: 96px;
+    flex: none;
+}
+
+.list::-webkit-scrollbar,
+.tag-list::-webkit-scrollbar {
     width: 5px;
 }
 
-.list::-webkit-scrollbar-thumb {
+.list::-webkit-scrollbar-thumb,
+.tag-list::-webkit-scrollbar-thumb {
     background: rgba(34, 211, 238, 0.28);
     border-radius: 3px;
-}
-
-.list::-webkit-scrollbar-track {
-    background: transparent;
 }
 
 .item {
@@ -439,34 +493,34 @@ button.mini {
     gap: 8px;
     padding: 5px 8px;
     background: rgba(34, 211, 238, 0.045);
-    border-left: 2px solid rgba(34, 211, 238, 0.35);
+    border-left: 2px solid rgba(34, 211, 238, 0.38);
     border-radius: 2px;
     font-size: 12px;
     flex: none;
 }
 
 .item .name {
-    color: #E6F2FF;
+    color: var(--text-title);
+    max-width: 150px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 150px;
 }
 
 .item .note {
-    color: var(--muted);
+    flex: 1;
+    min-width: 0;
     font-size: 11px;
+    color: var(--text-sub);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
-    min-width: 0;
 }
 
 .item .time {
-    color: #4B5A70;
-    font-size: 10px;
     font-family: "Consolas", monospace;
+    font-size: 10px;
+    color: #4B5A70;
     white-space: nowrap;
 }
 
@@ -481,13 +535,13 @@ button.mini {
     align-items: center;
     justify-content: center;
     height: 100%;
-    min-height: 40px;
+    min-height: 38px;
     font-size: 12px;
     color: #445468;
     letter-spacing: 1px;
 }
 
-.search-result {
+.pick-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -496,80 +550,91 @@ button.mini {
     background: rgba(148, 163, 184, 0.06);
     border-radius: 2px;
     cursor: pointer;
-    transition: background 0.12s;
     flex: none;
+    transition: background 0.12s;
 }
 
-.search-result:hover {
+.pick-item:hover {
     background: rgba(34, 211, 238, 0.12);
 }
 
-.search-result.active {
+.pick-item.active {
     background: rgba(34, 211, 238, 0.16);
     outline: 1px solid rgba(34, 211, 238, 0.35);
 }
 
-.search-result .rk {
+.pick-item .rk {
+    flex: none;
+    width: 14px;
     font-family: "Consolas", monospace;
     font-size: 10px;
-    color: var(--cyan-dim);
-    width: 14px;
-    flex: none;
+    color: rgba(34, 211, 238, 0.65);
 }
 
-.search-result .song {
-    color: #E6F2FF;
+.pick-item .song {
     flex: 1;
     min-width: 0;
+    color: var(--text-title);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.search-result .artist {
-    color: var(--muted);
-    font-size: 11px;
-    max-width: 110px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.pick-item .artist {
     flex: none;
+    max-width: 100px;
+    font-size: 11px;
+    color: var(--text-sub);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.search-result .pop {
-    font-family: "Consolas", monospace;
-    font-size: 11px;
-    color: var(--amber);
+.pick-item .pop {
+    flex: none;
     width: 26px;
     text-align: right;
-    flex: none;
+    font-family: "Consolas", monospace;
+    font-size: 11px;
+    color: var(--accent-warn);
 }
 
-.selected-song {
+.picked {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex: none;
     padding: 4px 8px;
     font-size: 11px;
-    color: var(--muted);
+    color: var(--text-sub);
     background: rgba(34, 211, 238, 0.07);
     border-radius: 2px;
-    flex: none;
 }
 
-.selected-song b {
-    color: var(--cyan);
+.picked b {
+    min-width: 0;
     font-weight: 500;
+    color: var(--accent);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
+}
+
+.tag-list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-content: flex-start;
+    overflow-y: auto;
 }
 
 .tag-chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    flex: none;
     padding: 3px 6px 3px 8px;
     font-size: 11px;
     color: #CFF9FF;
@@ -577,29 +642,18 @@ button.mini {
     border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 10px;
     white-space: nowrap;
-    flex: none;
 }
 
 .tag-chip i {
     font-style: normal;
     cursor: pointer;
-    color: var(--muted);
+    color: var(--text-sub);
     font-size: 12px;
     line-height: 1;
 }
 
 .tag-chip i:hover {
-    color: var(--red);
-}
-
-.tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    overflow-y: auto;
-    min-height: 0;
-    flex: 1;
-    align-content: flex-start;
+    color: var(--accent-danger);
 }
 
 /* ---------- 提示 ---------- */
@@ -607,9 +661,9 @@ button.mini {
 #toast {
     position: absolute;
     left: 50%;
-    bottom: 46px;
+    bottom: 60px;
     transform: translateX(-50%) translateY(10px);
-    padding: 8px 20px;
+    padding: 9px 22px;
     font-size: 13px;
     letter-spacing: 1px;
     color: #04121C;
@@ -633,7 +687,7 @@ button.mini {
     box-shadow: 0 8px 28px rgba(248, 113, 113, 0.35);
 }
 
-/* ---------- 截图辅助：URL 加 ?native=1 时按 1:1 渲染并允许滚动（仅用于取证截图） ---------- */
+/* ---------- 截图辅助：?native=1 时按 1:1 渲染并允许滚动 ---------- */
 
 html.native-shot #viewport {
     overflow: auto;
@@ -643,4 +697,359 @@ html.native-shot #stage {
     left: 0;
     top: 0;
     transform: none;
+}
+
+/* ---------- 模式切换（一个面板两种模式，点击切换、不用下拉框） ---------- */
+
+.mode-switch {
+    display: flex;
+    flex: none;
+    gap: 0;
+    padding: 2px;
+    background: rgba(6, 14, 26, 0.85);
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    border-radius: 3px;
+}
+
+.mode-btn {
+    flex: 1;
+    height: 24px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    letter-spacing: 0.5px;
+    color: var(--text-sub);
+    background: transparent;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.mode-btn:hover {
+    color: var(--accent);
+    background: rgba(34, 211, 238, 0.08);
+}
+
+/* 当前模式：实心强调色，一眼能看出现在是搜歌手还是搜歌曲 */
+.mode-btn.active {
+    color: #04121C;
+    background: linear-gradient(180deg, #38E0F5, #17B6D4);
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+}
+
+/* 结果行右侧的「库内 / 库外」小标 */
+.tag-in,
+.tag-out {
+    flex: none;
+    font-size: 10px;
+    line-height: 15px;
+    padding: 0 5px;
+    border-radius: 2px;
+}
+
+.tag-in {
+    color: #04121C;
+    background: rgba(52, 211, 153, 0.85);
+}
+
+.tag-out {
+    color: #2A1206;
+    background: rgba(251, 191, 36, 0.85);
+}
+
+/* ---------- 搜索面板的排版修正 ---------- */
+
+/* 之前把 pane 设成 display:flex 却没给方向，导致「备注 + 关注」和已收藏列表被排成左右两栏。
+   现在两种模式共用同一段 DOM，这里显式声明纵向排列。 */
+.form-body,
+#pane-artist,
+#pane-song {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-height: 0;
+    flex: 1;
+}
+
+.form-body > .row {
+    flex: none;
+}
+
+/* 输入框一行三件：名称自适应，备注固定宽，两个按钮不压缩 */
+.form-body > .row input.short {
+    flex: 0 0 108px;
+    max-width: 108px;
+}
+
+/* 已收藏列表：按表格排布，备注/标签固定落在中段，各行的列位置对齐 */
+.saved-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 4px;
+}
+
+.saved-list .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) 36px minmax(0, 0.9fr) 74px auto;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+.saved-list .item .name {
+    min-width: 0;
+    max-width: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-title);
+}
+
+/* 中段的备注 / 标签列：固定列宽，像表格一样对齐 */
+.saved-list .item .note {
+    min-width: 0;
+    flex: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-sub);
+    font-size: 11px;
+}
+
+.saved-list .item .time {
+    text-align: right;
+}
+
+.saved-list .item .ops {
+    justify-self: end;
+}
+
+
+/* ======================================================================
+ * 布局引擎：拖动 / 缩放 / 设置抽屉 / 可配置图表
+ * ====================================================================== */
+
+/* 标题栏：只有打开了「允许拖动布局」才把鼠标指针变成「可移动」，
+   否则默认指针，避免看起来能拖却拖不动 */
+.panel .panel-head {
+    user-select: none;
+}
+
+body.drag-enabled .panel .panel-head {
+    cursor: move;
+}
+
+/* 被锁定（绑定）的面板：鼠标指针用默认，明确告诉用户它不参与交换 */
+body.drag-enabled .panel.locked .panel-head {
+    cursor: default;
+}
+
+/* 拖动、缩放过程中的状态（加阴影 + 置顶，手感更明确） */
+.panel.dragging {
+    z-index: 80;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--accent);
+    transition: none;
+}
+
+.panel.resizing {
+    z-index: 81;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--accent);
+}
+
+/* 缩放功能已按需求取消：面板大小固定，只做「交换格子」式拖动，不做任意缩放 */
+
+/* ---------- 可配置图表的选择条 ---------- */
+
+.custom-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    padding-bottom: 6px;
+}
+
+.cfg-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    white-space: nowrap;
+}
+
+.cfg-select {
+    height: 24px;
+    padding: 0 4px;
+    font-size: 11.5px;
+    font-family: inherit;
+    color: var(--text-main);
+    background: rgba(6, 14, 26, 0.9);
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+/* 当前组合不支持的选项：置灰 + 禁止光标（不是隐藏，让用户知道有这一项但配不了） */
+.cfg-select option:disabled {
+    color: #46566B;
+    background: #0B1120;
+}
+
+.cfg-select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ---------- 顶部两个按钮 ---------- */
+
+.topbar-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.topbar-actions button {
+    height: 24px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    letter-spacing: 0.5px;
+}
+
+/* ---------- 自定义设置：居中弹窗（点「自定义」才凭空出现） ---------- */
+
+.modal-mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(3, 7, 14, 0.55);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 90;
+}
+
+.modal-mask.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 720px;
+    transform: translate(-50%, -50%) scale(0.96);
+    display: none;
+    flex-direction: column;
+    background: linear-gradient(165deg, rgba(13, 25, 43, 0.98), rgba(9, 17, 31, 0.98));
+    border: 1px solid var(--border-glow);
+    border-radius: 6px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    z-index: 95;
+}
+
+.modal.open {
+    display: flex;
+    animation: modal-in 0.18s ease-out forwards;
+}
+
+@keyframes modal-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.modal-head h3 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-title);
+}
+
+.modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    padding: 14px 16px;
+    max-height: 660px;
+    overflow-y: auto;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-soft);
+}
+
+.cfg-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.cfg-tip {
+    margin-top: 4px;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #5B6B80;
+}
+
+/* ---------- 搜索结果浮层（像下拉菜单一样盖在收藏列表上面，不推挤内容） ---------- */
+
+.form-body {
+    position: relative;   /* 浮层的定位基准 */
+}
+
+.result-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 62px;            /* 正好落在搜索行下方 */
+    z-index: 30;
+    display: none;
+    max-height: 260px;   /* 放宽一点，配合更多候选条数用滚轮翻 */
+    overflow-y: auto;
+    padding: 4px;
+    background: rgba(8, 17, 30, 0.98);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 3px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+}
+
+.result-overlay.open {
+    display: block;
+}
+
+/* ---------- 设置弹窗里的两栏 ---------- */
+
+.cfg-col {
+    min-width: 0;
+}
+
+/* 拖动时提示「会落到哪个格子」的虚线框 */
+.slot-hint {
+    position: absolute;
+    display: none;
+    border: 2px dashed rgba(34, 211, 238, 0.75);
+    border-radius: 4px;
+    background: rgba(34, 211, 238, 0.06);
+    pointer-events: none;
+    z-index: 70;
 }

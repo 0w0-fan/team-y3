@@ -11,6 +11,8 @@ public class ArtistPoint {
     public int works;
     /** 平均热度 AVG(track_popularity) */
     public double avgPop;
+    /** 该歌手的去重专辑数（v2 主图用它映射点大小） */
+    public int albumCount;
 
     public ArtistPoint() {
     }

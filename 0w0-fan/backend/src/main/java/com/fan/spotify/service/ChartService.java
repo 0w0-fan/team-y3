@@ -7,6 +7,7 @@ import com.fan.spotify.dto.ArtistTop;
 import com.fan.spotify.dto.BinCount;
 import com.fan.spotify.dto.Overview;
 import com.fan.spotify.dto.SongPoint;
+import com.fan.spotify.dto.YearPoint;
 import com.fan.spotify.mapper.FavoriteMapper;
 import com.fan.spotify.mapper.SongMapper;
 import com.fan.spotify.mapper.TagMapper;
@@ -79,6 +80,11 @@ public class ChartService {
         return result;
     }
 
+    /**
+     * 求中位数：偶数个取中间两个的平均值，奇数个取正中间。
+     * @param sorted 已升序排好的列表
+     * @return 中位数；空列表返回 0
+     */
     private static double median(List<Integer> sorted) {
         int n = sorted.size();
         if (n % 2 == 1) {
@@ -137,6 +143,45 @@ public class ChartService {
         return songMapper.selectTopSpans(normalizeLimit(limit, 20, 100));
     }
 
+    /**
+     * 图 7：逐年歌曲数 × 平均热度（v2 新增）。
+     * 默认区间 1957–2019：2020 年只有 785 行，是抓取时点截断，放进来会让趋势图断崖式下跌。
+     */
+    public Map<String, Object> yearTrend(Integer from, Integer to) {
+        int start = (from == null || from < 1900) ? 1957 : from;
+        int end = (to == null || to > 2100) ? 2019 : to;
+        if (start > end) {
+            int tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        List<YearPoint> points = songMapper.selectYearTrend(start, end);
+
+        int peakYear = 0;
+        int peakSongs = 0;
+        long totalSongs = 0;
+        for (YearPoint p : points) {
+            totalSongs += p.songs;
+            if (p.songs > peakSongs) {
+                peakSongs = p.songs;
+                peakYear = p.year;
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("points", points);
+        result.put("from", start);
+        result.put("to", end);
+        result.put("years", points.size());
+        result.put("totalSongs", totalSongs);
+        result.put("peakYear", peakYear);
+        result.put("peakSongs", peakSongs);
+        result.put("latestYear", points.isEmpty() ? null : points.get(points.size() - 1).year);
+        result.put("latestAvgPop", points.isEmpty() ? null : points.get(points.size() - 1).avgPop);
+        return result;
+    }
+
     /** 图 6：热度 × 时长 全量散点（28,356 点） */
     public Map<String, Object> popularityDuration() {
         List<SongPoint> points = songMapper.selectPopularityDuration();
@@ -146,6 +191,13 @@ public class ChartService {
         return result;
     }
 
+    /**
+     * 兜住前端传来的 limit：非正数用默认值，超过上限就截断，避免一条 URL 把数据库拉爆。
+     * @param limit 原始值
+     * @param def   默认值
+     * @param max   上限
+     * @return 可安全使用的条数
+     */
     private static int normalizeLimit(int limit, int def, int max) {
         if (limit <= 0) {
             return def;

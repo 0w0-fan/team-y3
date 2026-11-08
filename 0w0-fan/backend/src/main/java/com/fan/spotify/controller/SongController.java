@@ -22,6 +22,12 @@ public class SongController {
         this.songService = songService;
     }
 
+    /**
+     * 歌曲检索（给「歌曲打标签」交互件选歌用）。
+     * GET /api/song/search?q=love&limit=8
+     * @param q     歌名或歌手名关键词
+     * @param limit 返回条数，默认 8
+     */
     @GetMapping("/search")
     public List<SongBrief> search(@RequestParam(name = "q", defaultValue = "") String q,
                                   @RequestParam(name = "limit", defaultValue = "8") int limit) {
