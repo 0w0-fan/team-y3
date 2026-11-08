@@ -15,9 +15,6 @@ import java.util.List;
 @Service
 public class TagService {
 
-    /** 没填标签时用的默认标签名：等于「收藏」这首歌 */
-    private static final String DEFAULT_TAG = "收藏";
-
     /** 库外歌曲的 track_id 前缀，避免和 Spotify 的真实 id 撞车 */
     private static final String CUSTOM_PREFIX = "custom:";
 
@@ -62,7 +59,7 @@ public class TagService {
      * 并把 in_dataset 记为 false，列表里会打「库外」标。
      * @param trackId  歌曲 ID，可为空
      * @param songName 歌名，手输歌曲时必填
-     * @param tagName  标签，为空时用默认的「收藏」
+     * @param tagName  标签，可空（不填就存空值）
      */
     @Transactional
     public SongTag create(String trackId, String songName, String tagName) {
@@ -79,7 +76,8 @@ public class TagService {
             throw BizException.badRequest("trackId 过长（最多 64 个字符）");
         }
 
-        String tag = (tagName == null || tagName.trim().isEmpty()) ? DEFAULT_TAG : tagName.trim();
+        // 用户没填标签就存空串（列表里显示为空），不再自动补「收藏」
+        String tag = tagName == null ? "" : tagName.trim();
         if (tag.length() > 64) {
             throw BizException.badRequest("标签过长（最多 64 个字符）");
         }

@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS song_tag (
     id         BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
     track_id   VARCHAR(64)  NOT NULL COMMENT '歌曲 ID；库里没有的歌用 custom:歌名 作占位',
     song_name  VARCHAR(512)     NULL DEFAULT NULL COMMENT '歌名（库外歌曲也存下来，列表要显示）',
-    tag_name   VARCHAR(64)  NOT NULL COMMENT '标签名，不填时默认「收藏」',
+    tag_name   VARCHAR(64)  NOT NULL COMMENT '标签名，可为空',
     in_dataset TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '这首歌是否存在于 artist_track_view（1=库内）',
     created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '打标签时间',
     PRIMARY KEY (id),

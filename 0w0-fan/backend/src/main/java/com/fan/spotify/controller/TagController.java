@@ -63,6 +63,7 @@ public class TagController {
      * 收藏一首歌 / 打标签。
      * POST /api/tag  body: {"trackId":"7KbF...","songName":"11 PM","tagName":"收藏"}
      * 库里没有的歌可以不传 trackId，只传 songName，服务端会生成 custom: 占位 id。
+     * 标签不填时存空值，不自动补默认标签。
      * @return 201 + 数据库里的真实记录（含 songName 与 inDataset）
      */
     @PostMapping

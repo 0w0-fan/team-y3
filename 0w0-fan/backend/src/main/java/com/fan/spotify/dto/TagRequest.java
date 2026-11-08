@@ -19,7 +19,7 @@ public class TagRequest {
     /** 歌名，手输歌曲时必填 */
     public String songName;
 
-    /** 标签；不填时服务端会用默认的「收藏」 */
+    /** 标签；不填就存空值 */
     public String tagName;
 
     public TagRequest() {
