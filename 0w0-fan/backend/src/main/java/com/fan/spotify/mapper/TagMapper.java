@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -20,21 +21,21 @@ public interface TagMapper {
      * 查最新的 N 条标签（跨歌曲），接口不带 trackId 时走这里。
      * @param limit 条数上限
      */
-    @Select("SELECT id, track_id, tag_name, created_at FROM song_tag ORDER BY created_at DESC, id DESC LIMIT #{limit}")
+    @Select("SELECT id, track_id, song_name, tag_name, in_dataset, created_at FROM song_tag ORDER BY created_at DESC, id DESC LIMIT #{limit}")
     List<SongTag> findLatest(@Param("limit") int limit);
 
     /**
      * 按主键回读：新增接口返回给前端的是数据库里的真实行（含 created_at）。
      * @param id 标签主键
      */
-    @Select("SELECT id, track_id, tag_name, created_at FROM song_tag WHERE id = #{id}")
+    @Select("SELECT id, track_id, song_name, tag_name, in_dataset, created_at FROM song_tag WHERE id = #{id}")
     SongTag findById(@Param("id") Long id);
 
     /**
      * 查某首歌的全部标签，按时间倒序。
      * @param trackId 歌曲 ID（Spotify 的 base62 字符串）
      */
-    @Select("SELECT id, track_id, tag_name, created_at FROM song_tag WHERE track_id = #{trackId} "
+    @Select("SELECT id, track_id, song_name, tag_name, in_dataset, created_at FROM song_tag WHERE track_id = #{trackId} "
             + "ORDER BY created_at DESC, id DESC")
     List<SongTag> findByTrackId(@Param("trackId") String trackId);
 
@@ -63,7 +64,7 @@ public interface TagMapper {
     /**
      * 新增标签，自增主键回填到入参对象。
      */
-    @Insert("INSERT INTO song_tag (track_id, tag_name) VALUES (#{trackId}, #{tagName})")
+    @Insert("INSERT INTO song_tag (track_id, song_name, tag_name, in_dataset) VALUES (#{trackId}, #{songName}, #{tagName}, #{inDataset})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(SongTag tag);
 
@@ -73,4 +74,11 @@ public interface TagMapper {
      */
     @Delete("DELETE FROM song_tag WHERE id = #{id}")
     int delete(@Param("id") Long id);
+
+    @Update("UPDATE song_tag SET tag_name = #{tagName} WHERE id = #{id}")
+    int updateTagName(@Param("id") Long id, @Param("tagName") String tagName);
+
+    @Select("SELECT id, track_id, song_name, tag_name, in_dataset, created_at FROM song_tag "
+            + "ORDER BY created_at DESC, id DESC LIMIT #{limit}")
+    List<SongTag> findRecent(@Param("limit") int limit);
 }

@@ -223,6 +223,22 @@ public interface SongMapper {
             + "LIMIT #{limit}")
     List<ArtistPoint> searchArtists(@Param("q") String q, @Param("limit") int limit);
 
+    /**
+     * 这首（真实）歌曲是否存在于去重视图 —— 收藏歌曲时判断「库内/库外」用。
+     * @param trackId Spotify 的歌曲 id
+     * @return 命中行数
+     */
+    @Select("SELECT COUNT(*) FROM artist_track_view WHERE track_id = #{trackId}")
+    int countTrackInDataset(@Param("trackId") String trackId);
+
+    /**
+     * 用 track_id 反查歌名（前端只传了 id 没传名字时兜底）。
+     * @param trackId Spotify 的歌曲 id
+     * @return 歌名，查不到返回 null
+     */
+    @Select("SELECT track_name FROM artist_track_view WHERE track_id = #{trackId} LIMIT 1")
+    String findTrackName(@Param("trackId") String trackId);
+
     /* ---------------- 交互件：歌曲搜索 ---------------- */
 
     /**

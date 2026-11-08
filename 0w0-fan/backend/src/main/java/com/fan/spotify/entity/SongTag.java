@@ -11,7 +11,21 @@ public class SongTag {
 
     private Long id;
     private String trackId;
+
+    /**
+     * 歌名。库里的歌直接用 artist_track_view 里的名字；
+     * 用户自己手输、库里没有的歌也把名字存下来，方便列表里显示。
+     */
+    private String songName;
+
     private String tagName;
+
+    /**
+     * 这首歌在数据集里是否真实存在。
+     * true  = track_id 能在 artist_track_view 里查到
+     * false = 手输的「库外歌曲」，track_id 是 custom: 开头的占位符
+     */
+    private Boolean inDataset;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Shanghai")
     private LocalDateTime createdAt;
@@ -30,6 +44,22 @@ public class SongTag {
 
     public void setTrackId(String trackId) {
         this.trackId = trackId;
+    }
+
+    public String getSongName() {
+        return songName;
+    }
+
+    public void setSongName(String songName) {
+        this.songName = songName;
+    }
+
+    public Boolean getInDataset() {
+        return inDataset;
+    }
+
+    public void setInDataset(Boolean inDataset) {
+        this.inDataset = inDataset;
     }
 
     public String getTagName() {
