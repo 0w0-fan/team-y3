@@ -234,29 +234,30 @@
         }
     }
 
-    /** 找离面板中心最近的格子 */
-    function nearestSlot(panelEl) {
-        var pid = panelEl.id;
-        var cur = slotOf(panelSlotId(pid));
-        var rect = panelEl.getBoundingClientRect();
-        var cx = rect.left + rect.width / 2;
-        var cy = rect.top + rect.height / 2;
+    /**
+     * 找离「鼠标落点」最近的格子。
+     * 注意用的是指针坐标而不是面板当前位置：拖动时面板有跟手延迟，
+     * 手快的人松手瞬间面板还没滑到位，用面板位置算会指到错的格子。
+     */
+    function nearestSlotAt(clientX, clientY) {
+        var rect = canvas.getBoundingClientRect();
+        var scale = currentScale();
+        var cx = (clientX - rect.left) / scale;
+        var cy = (clientY - rect.top) / scale;
         var best = null;
         var bestD = Infinity;
 
         for (var i = 0; i < SLOTS.length; i++) {
             var s = SLOTS[i];
-            var el = canvas.getBoundingClientRect();
-            var scale = currentScale();
-            var sx = el.left + (s.x + s.w / 2) * scale;
-            var sy = el.top + (s.y + s.h / 2) * scale;
+            var sx = s.x + s.w / 2;
+            var sy = s.y + s.h / 2;
             var d = Math.pow(sx - cx, 2) + Math.pow(sy - cy, 2);
             if (d < bestD) {
                 bestD = d;
                 best = s;
             }
         }
-        return best || cur;
+        return best;
     }
 
     /** 某个格子现在被谁占着 */
@@ -273,6 +274,18 @@
         return LOCKED.indexOf(panelId) >= 0;
     }
 
+    /** 松手后滑到目标位置：加 animating 类走 CSS 过渡，过渡结束再摘掉 */
+    function glideTo(el, after) {
+        el.classList.add('animating');
+        el.style.transform = '';
+        if (after) {
+            after();
+        }
+        setTimeout(function () {
+            el.classList.remove('animating');
+        }, 360);
+    }
+
     function startDrag(el, ev) {
         if (!theme.allowDrag) {
             return;                       // 默认关闭：直接不响应，避免演示时误拖
@@ -286,20 +299,35 @@
         var scale = currentScale();
         var moved = false;
         var target = null;
+        var raf = null;
+
+        // 跟手位移：目标位移 tgt 与当前位移 cur 之间每帧插值，做出「带阻尼的跟随」手感
+        var tgt = { x: 0, y: 0 };
+        var cur = { x: 0, y: 0 };
+        var running = true;
 
         el.classList.add('dragging');
         document.body.classList.add('dragging');
 
+        function frame() {
+            if (!running) {
+                return;
+            }
+            cur.x += (tgt.x - cur.x) * 0.28;
+            cur.y += (tgt.y - cur.y) * 0.28;
+            el.style.transform = 'translate3d(' + cur.x.toFixed(2) + 'px,' + cur.y.toFixed(2) + 'px,0) scale(1.015)';
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
         function onMove(e) {
-            var dx = (e.clientX - startX) / scale;
-            var dy = (e.clientY - startY) / scale;
-            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            tgt.x = (e.clientX - startX) / scale;
+            tgt.y = (e.clientY - startY) / scale;
+            if (Math.abs(tgt.x) > 3 || Math.abs(tgt.y) > 3) {
                 moved = true;
             }
-            el.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0)';
             if (moved) {
-                target = nearestSlot(el);
-                // 目标格子被锁定面板占着 → 不提示、不交换
+                target = nearestSlotAt(e.clientX, e.clientY);
                 var occ = target ? occupantOf(target.id) : null;
                 var blocked = (target && occ && isLocked(occ)) || isLocked(el.id);
                 if (target && target.id !== panelSlotId(el.id) && !blocked) {
@@ -315,38 +343,37 @@
             document.removeEventListener('pointerup', onUp);
             el.classList.remove('dragging');
             document.body.classList.remove('dragging');
-            el.style.transform = '';
+            running = false;
             hideHint();
 
             if (!moved) {
+                glideTo(el);
                 return;
             }
 
             var mode = theme.dragMode;
             var occupant = target ? occupantOf(target.id) : null;
+            var mineId = panelSlotId(el.id);
 
-            // 锁定面板：永远吸附回自己的格子，且不跟任何人交换
+            // 锁定面板：滑回原位（有动画，不是瞬移），不提示、不交换
             if (isLocked(el.id)) {
-                applyLayout();
-                toast('这 5 张图是绑定在一起的，不参与交换');
+                glideTo(el);
                 return;
             }
 
-            // 目标格子被锁定面板占着：也不交换，直接回原位
-            if (mode === 'swap' && target && target.id !== panelSlotId(el.id) &&
+            // 目标格子是锁定面板占着的：也不交换，滑回原位
+            if (mode === 'swap' && target && target.id !== mineId &&
                 !(occupant && isLocked(occupant))) {
-                var mineId = panelSlotId(el.id);
                 assign[el.id] = target.id;
                 if (occupant && occupant !== el.id) {
                     assign[occupant] = mineId;
                 }
                 write(STORE_LAYOUT, assign);
-                applyLayout();
-                toast(occupant ? '已互换位置' : '已移动');
+                glideTo(el, applyLayout);
                 return;
             }
 
-            applyLayout();   // 其余情况：吸回最近的格子（也就是原位）
+            glideTo(el, applyLayout);
         }
 
         document.addEventListener('pointermove', onMove);
@@ -367,14 +394,13 @@
         for (var i = 0; i < list.length; i++) {
             (function (el) {
                 if (isLocked(el.id)) {
-                    el.classList.add('locked');
+                    el.classList.add('locked');   // 只是个标记，仍然可以拖动，只是不参与交换
                 }
-                var head = el.querySelector('.panel-head');
-                if (head) {
-                    head.addEventListener('pointerdown', function (ev) {
-                        startDrag(el, ev);
-                    });
-                }
+                // 有标题栏的用标题栏当把手；KPI 条没有标题栏，整块都能拖
+                var handle = el.querySelector('.panel-head') || el;
+                handle.addEventListener('pointerdown', function (ev) {
+                    startDrag(el, ev);
+                });
             })(list[i]);
         }
     }
@@ -470,6 +496,7 @@
         document.getElementById('btn-save-theme').addEventListener('click', function () {
             write(STORE_THEME, theme);
             write(STORE_LAYOUT, assign);
+            close();
             toast('已保存到本机浏览器');
         });
 

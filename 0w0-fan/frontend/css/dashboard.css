@@ -194,6 +194,7 @@ body {
     flex-direction: column;
     min-height: 0;
     padding: 10px 12px 8px;
+    will-change: transform;   /* 拖动时走 GPU 合成，跟手感更顺 */
     background: linear-gradient(165deg, var(--bg-panel), var(--bg-panel-2));
     border: 1px solid var(--border-soft);
     border-radius: 4px;
@@ -305,7 +306,7 @@ body {
     flex-direction: column;
     justify-content: center;
     gap: 4px;
-    padding: 8px 16px;
+    padding: 8px 10px;         /* 左右收窄，把宽度让给数字 */
     background: linear-gradient(180deg, rgba(34, 211, 238, 0.10), rgba(34, 211, 238, 0.02));
     border: 1px solid var(--border-glow);
     border-radius: 4px;
@@ -324,9 +325,10 @@ body {
 
 .kpi-value {
     font-family: "Consolas", "Menlo", monospace;
-    font-size: 38px;
+    font-size: 31px;           /* 38 → 31：6 位数字 + 单位才装得进 155px 的格子 */
     font-weight: 700;
     line-height: 1;
+    white-space: nowrap;       /* 数字与单位永不换行 */
     color: var(--accent);
     text-shadow: 0 0 16px rgba(34, 211, 238, 0.45);
     display: flex;
@@ -336,7 +338,7 @@ body {
 
 /* 单位缩到数值的 40%（技能规范） */
 .kpi-value small {
-    font-size: 14px;
+    font-size: 12px;           /* 单位缩到数字的 40% 以下，符合大屏规范 */
     font-weight: 500;
     color: var(--text-sub);
 }
@@ -843,9 +845,20 @@ body.drag-enabled .panel .panel-head {
     cursor: move;
 }
 
-/* 被锁定（绑定）的面板：鼠标指针用默认，明确告诉用户它不参与交换 */
-body.drag-enabled .panel.locked .panel-head {
-    cursor: default;
+/* 锁定面板也允许拖动（只是不参与交换），所以指针照旧是「可移动」 */
+
+/* KPI 条没有标题栏，整块都能拖 */
+body.drag-enabled .kpi-strip {
+    cursor: move;
+}
+
+/* 松手后落位的过渡：用 CSS 缓动滑到目标格子，不是瞬移 */
+.panel.animating {
+    transition: left 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+                top 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+                width 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+                height 0.34s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.34s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 /* 拖动、缩放过程中的状态（加阴影 + 置顶，手感更明确） */
@@ -940,7 +953,7 @@ body.drag-enabled .panel.locked .panel-head {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 720px;
+    width: 900px;
     transform: translate(-50%, -50%) scale(0.96);
     display: none;
     flex-direction: column;
@@ -979,8 +992,8 @@ body.drag-enabled .panel.locked .panel-head {
 .modal-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    padding: 14px 16px;
+    gap: 26px 34px;           /* 两栏之间留足空隙，别挤在一起 */
+    padding: 20px 24px;
     max-height: 660px;
     overflow-y: auto;
 }
