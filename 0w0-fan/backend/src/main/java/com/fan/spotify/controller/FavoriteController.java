@@ -29,22 +29,43 @@ public class FavoriteController {
         this.favoriteService = favoriteService;
     }
 
+    /**
+     * 关注列表。
+     * GET /api/favorite
+     */
     @GetMapping
     public List<ArtistFavorite> list() {
         return favoriteService.list();
     }
 
+    /**
+     * 新增关注。
+     * POST /api/favorite   body: {"artistName":"Billie Eilish","note":"备注"}
+     * @return 201 + 数据库里的真实记录
+     * @throws com.fan.spotify.common.BizException 400 参数不合法 / 409 已经关注过
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ArtistFavorite create(@RequestBody FavoriteRequest req) {
         return favoriteService.create(req.artistName, req.note);
     }
 
+    /**
+     * 修改关注（改备注或改歌手名）。
+     * PUT /api/favorite/{id}   body: {"artistName":"可省略","note":"新备注"}
+     * @param id 关注记录主键
+     */
     @PutMapping("/{id}")
     public ArtistFavorite update(@PathVariable("id") Long id, @RequestBody FavoriteRequest req) {
         return favoriteService.update(id, req.artistName, req.note);
     }
 
+    /**
+     * 取消关注。
+     * DELETE /api/favorite/{id}
+     * @param id 关注记录主键
+     * @return 删除行数（正常为 1）
+     */
     @DeleteMapping("/{id}")
     public int delete(@PathVariable("id") Long id) {
         return favoriteService.delete(id);

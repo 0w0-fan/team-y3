@@ -80,6 +80,11 @@ public class ChartService {
         return result;
     }
 
+    /**
+     * 求中位数：偶数个取中间两个的平均值，奇数个取正中间。
+     * @param sorted 已升序排好的列表
+     * @return 中位数；空列表返回 0
+     */
     private static double median(List<Integer> sorted) {
         int n = sorted.size();
         if (n % 2 == 1) {
@@ -186,6 +191,13 @@ public class ChartService {
         return result;
     }
 
+    /**
+     * 兜住前端传来的 limit：非正数用默认值，超过上限就截断，避免一条 URL 把数据库拉爆。
+     * @param limit 原始值
+     * @param def   默认值
+     * @param max   上限
+     * @return 可安全使用的条数
+     */
     private static int normalizeLimit(int limit, int def, int max) {
         if (limit <= 0) {
             return def;

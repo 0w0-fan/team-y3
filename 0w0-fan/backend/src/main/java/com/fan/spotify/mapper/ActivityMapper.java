@@ -13,6 +13,12 @@ import java.util.List;
 @Mapper
 public interface ActivityMapper {
 
+    /**
+     * 把两张表的动态合成一条时间线：关注记录 + 标签记录，按时间倒序取前 N 条。
+     * 标签那条通过 LEFT JOIN artist_track_view 把 track_id 换成歌名，便于阅读；
+     * 万一 join 不到（例如歌曲被清理）就退回显示 track_id。
+     * @param limit 条数上限
+     */
     @Select("SELECT * FROM ("
             + "  SELECT 'favorite' AS type, artist_name AS title, COALESCE(note, '') AS detail, created_at AS time "
             + "  FROM artist_favorite "

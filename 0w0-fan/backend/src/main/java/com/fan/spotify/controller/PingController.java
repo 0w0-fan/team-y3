@@ -21,6 +21,11 @@ public class PingController {
         this.songMapper = songMapper;
     }
 
+    /**
+     * 健康检查：读一次主表行数，能返回 32833 就说明 Spring 上下文、数据源、MyBatis 都通了。
+     * GET /api/ping
+     * @return {"count":32833,"status":"ok"}
+     */
     @GetMapping("/ping")
     public Map<String, Object> ping() {
         Map<String, Object> map = new LinkedHashMap<>();

@@ -29,6 +29,12 @@ public class TagController {
         this.tagService = tagService;
     }
 
+    /**
+     * 查标签：带 trackId 查某首歌的标签，不带则返回最新的 N 条。
+     * GET /api/tag?trackId=xxx   或   GET /api/tag?limit=10
+     * @param trackId 歌曲 ID，可空
+     * @param limit   不带 trackId 时的条数上限
+     */
     @GetMapping
     public List<SongTag> list(@RequestParam(name = "trackId", required = false) String trackId,
                               @RequestParam(name = "limit", required = false, defaultValue = "0") int limit) {
@@ -38,12 +44,23 @@ public class TagController {
         return tagService.listByTrack(trackId);
     }
 
+    /**
+     * 打标签。
+     * POST /api/tag   body: {"trackId":"0u2P...","tagName":"循环单曲"}
+     * @return 201 + 数据库里的真实记录
+     * @throws com.fan.spotify.common.BizException 400 参数不合法 / 409 这首歌已有该标签
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SongTag create(@RequestBody TagRequest req) {
         return tagService.create(req.trackId, req.tagName);
     }
 
+    /**
+     * 删标签。
+     * DELETE /api/tag/{id}
+     * @param id 标签主键
+     */
     @DeleteMapping("/{id}")
     public int delete(@PathVariable("id") Long id) {
         return tagService.delete(id);

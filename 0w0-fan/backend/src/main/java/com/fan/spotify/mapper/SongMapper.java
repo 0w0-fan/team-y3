@@ -25,15 +25,30 @@ public interface SongMapper {
 
     /* ---------------- 概览 ---------------- */
 
+    /**
+     * 主表总行数。这是「歌曲-歌单」明细记录数（32,833），同一首歌被多个歌单收录会重复计数，
+     * 所以它比真正的歌曲数大。供 /api/ping 做健康检查用。
+     */
     @Select("SELECT COUNT(*) FROM spotify_songs")
     long countRows();
 
+    /**
+     * 去重视图的行数 = 去重后的歌曲数（28,356）。
+     * 视图 artist_track_view 按 track_id 只保留一行，所有图表口径都基于它。
+     */
     @Select("SELECT COUNT(*) FROM artist_track_view")
     long countSongs();
 
+    /**
+     * 唯一歌手数（10,693）。这里不排除字面量 'NA'，因为它是原始数据里真实存在的一行，
+     * 顶部 KPI 要与数据字典对齐；需要按歌手分组统计时再单独过滤（见下面各查询）。
+     */
     @Select("SELECT COUNT(DISTINCT track_artist) FROM artist_track_view")
     long countArtists();
 
+    /**
+     * 唯一专辑数（19,744），同样是数据字典里的口径，不做额外过滤。
+     */
     @Select("SELECT COUNT(DISTINCT track_album_name) FROM artist_track_view")
     long countAlbums();
 
@@ -47,6 +62,13 @@ public interface SongMapper {
 
     /* ---------------- 图 1：作品数 × 平均热度 四象限散点 ---------------- */
 
+    /**
+     * 图 1 四象限散点的原始数据，每位歌手一行：
+     * works = COUNT(DISTINCT track_id) 作品数；avgPop = AVG(track_popularity) 平均热度；
+     * albumCount = COUNT(DISTINCT track_album_id) 专辑数（v2 用它映射气泡大小）。
+     * 过滤掉作品数 < 3 的歌手（3,000 多位只有 1~2 首的长尾歌手放进主图会糊成一片），
+     * 结果稳定为 2,486 行，与任务文档的期望值一致；同时排除空值/字面量 'NA' 的假歌手。
+     */
     @Select("SELECT track_artist AS name, "
             + "       COUNT(DISTINCT track_id) AS works, "
             + "       ROUND(AVG(track_popularity), 2) AS avgPop, "
@@ -60,6 +82,11 @@ public interface SongMapper {
 
     /* ---------------- 图 2：歌手作品数长尾分布 ---------------- */
 
+    /**
+     * 图 2 长尾分布：把歌手按作品数分箱后统计每箱人数。
+     * 分箱规则写在 SQL 的 CASE WHEN 里（1/2/3/4/5/6-10/11-20/21+），返回顺序不保证，
+     * Service 层会按固定顺序重排成 8 个柱。
+     */
     @Select("SELECT b.bin AS bin, COUNT(*) AS artists FROM ("
             + "  SELECT CASE WHEN n = 1 THEN '1' WHEN n = 2 THEN '2' WHEN n = 3 THEN '3' "
             + "              WHEN n = 4 THEN '4' WHEN n = 5 THEN '5' "
@@ -75,6 +102,12 @@ public interface SongMapper {
 
     /* ---------------- 图 3：平均热度 TOP N ---------------- */
 
+    /**
+     * 图 3 平均热度 TOP N（默认 20 位）。
+     * 只统计作品数 >= 3 的歌手，避免「只有 1 首歌恰好很热」的歌手霸榜；
+     * 排序额外加了作品数与歌手名作为第二、第三关键字，保证同热度时结果稳定可复现。
+     * @param limit 取前多少位，Service 层已限制在 100 以内
+     */
     @Select("SELECT track_artist AS name, "
             + "       COUNT(DISTINCT track_id) AS works, "
             + "       ROUND(AVG(track_popularity), 2) AS avgPop "
@@ -88,6 +121,12 @@ public interface SongMapper {
 
     /* ---------------- 图 4：专辑曲目数 × 歌曲平均热度 ---------------- */
 
+    /**
+     * 图 4 专辑曲目数分箱：每箱的专辑数 + 歌曲平均热度。
+     * 只统计曲目数 >= 2 的专辑（19,744 张专辑里有近一半只有 1 首，没有「分箱」的意义）。
+     * 平均热度用歌曲加权：SUM(曲目数 x 该专辑均热) / SUM(曲目数)，
+     * 也就是「该箱内所有歌曲的 AVG(track_popularity)」，与图 1 的热度口径保持一致。
+     */
     @Select("SELECT b.bin AS bin, "
             + "       COUNT(*) AS albums, "
             + "       ROUND(SUM(b.n * b.p) / SUM(b.n), 2) AS avgPop "
@@ -105,6 +144,12 @@ public interface SongMapper {
 
     /* ---------------- 图 5：歌手活跃年份跨度 TOP N ---------------- */
 
+    /**
+     * 图 5 歌手活跃年份跨度 TOP N。
+     * span = MAX(release_year) - MIN(release_year)，即最早与最晚发行年份之差。
+     * 只取作品数 >= 3 且两个年份都非空的歌手（年份来自字符串截取，非法格式在视图里留 NULL）。
+     * @param limit 取前多少位
+     */
     @Select("SELECT track_artist AS name, "
             + "       COUNT(DISTINCT track_id) AS works, "
             + "       MIN(release_year) AS minYear, "
@@ -120,11 +165,22 @@ public interface SongMapper {
 
     /* ---------------- 图 6：热度 × 时长 全量散点 ---------------- */
 
+    /**
+     * 图 6 热度 x 时长全量散点：28,356 个点，一个点一首歌。
+     * 不分页、不采样，前端用 ECharts 的 large 模式渲染（实测 JSON 约 50 万字节、0.13 秒返回）。
+     */
     @Select("SELECT duration_min AS x, track_popularity AS y FROM artist_track_view")
     List<SongPoint> selectPopularityDuration();
 
     /* ---------------- 图 7：逐年歌曲数 × 平均热度（v2 新增） ---------------- */
 
+    /**
+     * 图 7 逐年歌曲数 x 平均热度（v2 新增）。
+     * 年份区间默认 1957-2019：数据里 2020 年只有 785 行，是抓取时点造成的截断，
+     * 放进来会让趋势图最后一年断崖式下跌，所以默认不取。
+     * @param from 起始年份（含）
+     * @param to   结束年份（含）
+     */
     @Select("SELECT release_year AS year, "
             + "       COUNT(DISTINCT track_id) AS songs, "
             + "       ROUND(AVG(track_popularity), 2) AS avgPop "
@@ -135,6 +191,12 @@ public interface SongMapper {
 
     /* ---------------- 交互件：歌曲搜索 ---------------- */
 
+    /**
+     * 歌曲检索：给「歌曲打标签」交互件找歌用。
+     * 歌名或歌手名做模糊匹配（LIKE），按热度降序返回，热门的更容易被选中。
+     * @param q     关键词，Service 层已做长度校验
+     * @param limit 返回条数上限
+     */
     @Select("SELECT track_id AS trackId, track_name AS trackName, track_artist AS artist, "
             + "       track_popularity AS popularity, duration_min AS durationMin "
             + "FROM artist_track_view "

@@ -18,6 +18,10 @@ public class ActivityService {
         this.activityMapper = activityMapper;
     }
 
+    /**
+     * 取最近 N 条动态（关注 + 标签）。
+     * @param limit 条数上限，默认 20，最多 50
+     */
     public List<ActivityItem> recent(int limit) {
         int size = limit <= 0 ? 20 : Math.min(limit, 50);
         return activityMapper.selectRecent(size);

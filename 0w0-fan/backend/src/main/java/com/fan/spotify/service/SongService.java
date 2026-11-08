@@ -20,6 +20,12 @@ public class SongService {
         this.songMapper = songMapper;
     }
 
+    /**
+     * 歌曲模糊检索。空关键词直接返回空列表（不打库），关键词过长抛 400。
+     * @param keyword 歌名或歌手名片段
+     * @param limit   返回条数，默认 8，最多 30
+     * @return 按热度降序的歌曲摘要列表
+     */
     public List<SongBrief> search(String keyword, int limit) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
