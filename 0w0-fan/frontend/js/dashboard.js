@@ -615,17 +615,21 @@
             measures: ['songs', 'avgPop', 'avgDur'],
             types: ['bar', 'barH', 'area', 'ring', 'rose']
         },
-        /* 排行榜不是「构成比例」：20 个类目的饼图/环图/玫瑰图既读不出排序也读不出占比
-           （强制聚合到 12 项 + 其它 8 项，反而把榜尾信息抹掉），因此这三种不提供 */
+        /* 排行榜的两个限制：
+           ① 不是「构成比例」—— 20 个类目的环图/玫瑰图既读不出排序也读不出占比
+             （强制聚合到 12 项 + 其它 8 项反而把榜尾抹掉），所以不提供；
+           ② 类目是歌手名，顺序本身没有时间或数值上的连续含义，
+             面积图/折线图的「趋势」语义在这里不成立，所以也不提供。
+           排行榜只保留能表达「长短对比」的柱状与横向条形。 */
         artist_top: {
             label: '歌手 TOP20',
             measures: ['avgPop', 'works', 'albumCount', 'avgDur'],
-            types: ['barH', 'bar', 'area']
+            types: ['barH', 'bar']
         },
         artist_span: {
             label: '歌手活跃跨度 TOP20',
             measures: ['span', 'works', 'avgPop', 'albumCount'],
-            types: ['barH', 'bar', 'area']
+            types: ['barH', 'bar']
         }
     };
 
