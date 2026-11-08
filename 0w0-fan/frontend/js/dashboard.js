@@ -153,9 +153,22 @@
      * @param {number} [decimals=0]  保留几位小数（平均热度用 2 位）
      */
     function countUp(el, target, decimals) {
+        var d = decimals || 0;
+        var finalText = d > 0 ? Number(target).toFixed(d) : num(target);
+
+        /**
+         * 页面在后台（document.hidden）时，浏览器会把 requestAnimationFrame 完全停掉，
+         * 动画帧一帧都不会跑 —— 于是 KPI 会一直停在 0。
+         * 大屏是要 7×24 挂着的，切到别的标签页再回来不能看到一排 0，
+         * 所以后台时直接写终值，不做滚动。
+         */
+        if (document.hidden) {
+            el.textContent = finalText;
+            return;
+        }
+
         var duration = 1200;
         var t0 = performance.now();
-        var d = decimals || 0;
 
         function frame(now) {
             var p = Math.min((now - t0) / duration, 1);
@@ -165,7 +178,7 @@
             if (p < 1) {
                 requestAnimationFrame(frame);
             } else {
-                el.textContent = d > 0 ? Number(target).toFixed(d) : num(target);
+                el.textContent = finalText;
             }
         }
         requestAnimationFrame(frame);
@@ -1818,6 +1831,14 @@
     function boot() {
         tickClock();
         every(1000, tickClock);
+
+        /* 从后台切回来时补一次 KPI：后台期间 rAF 停摆，滚动动画不会跑 */
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden || !DATA.overview) {
+                return;
+            }
+            renderKPI(DATA.overview);
+        });
 
         Promise.all([
             getJSON('/api/overview'),
