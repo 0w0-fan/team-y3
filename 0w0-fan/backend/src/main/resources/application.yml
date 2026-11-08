@@ -33,10 +33,24 @@ spring:
       web-stat-filter:
         enabled: false
 
-  # 大屏是纯静态文件，直接从 0w0-fan/frontend 目录读，改完 CSS/JS 刷新即生效，不用重启后端
+  # 大屏是纯静态文件，直接从 0w0-fan/frontend 目录读：
+  # 改完 CSS/JS 刷新浏览器即生效，不用重启后端、也不用重新打包。
+  #
+  # 这里列了多个候选路径，是因为「工作目录」会随启动方式变化：
+  #   · IDEA 里直接跑 Spring Boot 运行配置 → 工作目录 = 仓库根 D:\Project\IDEA	eam-y3
+  #   · 终端里 cd 到 backend 再 mvn spring-boot:run → 工作目录 = 0w0-fan/backend
+  #   · java -jar target/spotify-dashboard.jar → 工作目录 = 启动时所在目录
+  # Spring Boot 只会用存在的那个，找不到就跳过，所以多列几个不会出错。
   web:
     resources:
-      static-locations: file:../frontend/,file:./frontend/,classpath:/static/
+      static-locations:
+        - file:../frontend/                # 工作目录 = 0w0-fan/backend
+        - file:./frontend/                 # 工作目录 = 0w0-fan
+        - file:../0w0-fan/frontend/        # 工作目录 = 仓库下的任意一层
+        - file:0w0-fan/frontend/           # 工作目录 = 仓库根（IDEA 默认）
+        - file:./0w0-fan/frontend/         # 同上，显式写法
+        - file:team-y3/0w0-fan/frontend/   # 工作目录 = D:\Project\IDEA
+        - classpath:/static/               # 兜底：以后若把前端打进 jar
       cache:
         period: 0
 
