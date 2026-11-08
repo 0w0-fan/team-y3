@@ -12,8 +12,8 @@
 <div id="viewport">
     <div id="stage">
 
-        <!-- ==================== 顶部标题栏 h=72 ==================== -->
-        <header class="topbar">
+        <!-- ==================== 顶部标题栏（固定不动，不可拖动） ==================== -->
+        <header class="topbar" id="topbar">
             <div class="topbar-left">
                 <div class="brand">
                     <span class="brand-dot"></span>
@@ -27,155 +27,208 @@
             <div class="topbar-right">
                 <div class="clock-label">数据截至 2020-01 · 实时查询</div>
                 <div class="clock" id="clock">---------- --:--:--</div>
+                <div class="topbar-actions">
+                    <button class="ghost" id="btn-reset-layout" title="把所有面板恢复到初始位置和大小">恢复默认</button>
+                    <button class="ghost" id="btn-customize" title="改背景、毛玻璃、渐变，并选择显示哪些面板">自定义</button>
+                </div>
             </div>
         </header>
 
-        <!-- ==================== 主体三栏 ==================== -->
-        <div class="main">
+        <!-- ==================== 面板画布：所有卡片都绝对定位在这里，可拖动 / 可缩放 ==================== -->
+        <div class="canvas" id="canvas">
 
-            <!-- ---------- 左栏 27% ---------- -->
-            <div class="col col-left">
-
-                <section class="panel" id="card-trend">
-                    <div class="panel-head">
-                        <h2>逐年歌曲数 × 平均热度</h2>
-                        <span class="badge">1957–2019</span>
-                        <span class="head-sub" id="trend-sub">62 年 · 双轴</span>
-                    </div>
-                    <div class="chart" id="chart-trend"></div>
-                </section>
-
-                <section class="panel" id="card-dist">
-                    <div class="panel-head">
-                        <h2>歌手作品数长尾分布</h2>
-                        <span class="badge">对数轴</span>
-                        <span class="head-sub">10,692 位歌手</span>
-                    </div>
-                    <div class="chart" id="chart-dist"></div>
-                </section>
-
-                <section class="panel" id="card-top">
-                    <div class="panel-head">
-                        <h2>平均热度 TOP20 歌手</h2>
-                        <span class="badge">TOP20</span>
-                        <span class="head-sub">作品数 ≥ 3 首</span>
-                    </div>
-                    <div class="chart" id="chart-top"></div>
-                </section>
-
-            </div>
-
-            <!-- ---------- 中栏 46% ---------- -->
-            <div class="col col-center">
-
-                <!-- KPI 翻牌区 -->
-                <section class="kpi-strip">
-                    <div class="kpi">
-                        <div class="kpi-value"><span class="num" id="kpi-songs">0</span><small>首</small></div>
-                        <div class="kpi-label">去重歌曲</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="kpi-value"><span class="num" id="kpi-artists">0</span><small>位</small></div>
-                        <div class="kpi-label">歌手</div>
-                    </div>
-                    <div class="kpi">
-                        <div class="kpi-value"><span class="num" id="kpi-albums">0</span><small>张</small></div>
-                        <div class="kpi-label">专辑</div>
-                    </div>
-                    <div class="kpi warm">
-                        <div class="kpi-value"><span class="num" id="kpi-pop">0</span><small>分</small></div>
-                        <div class="kpi-label">平均热度</div>
-                    </div>
-                    <div class="kpi purple">
-                        <div class="kpi-value"><span class="num" id="kpi-fav">0</span><small>/</small><span class="num" id="kpi-tag">0</span></div>
-                        <div class="kpi-label">关注 / 标签</div>
-                    </div>
-                </section>
-
-                <!-- 主视觉：四象限气泡 -->
-                <section class="panel panel-main" id="card-quadrant">
-                    <div class="panel-head">
-                        <h2>作品数 × 平均热度 四象限</h2>
-                        <span class="badge">主视觉</span>
-                        <span class="head-sub" id="quadrant-sub">作品数 ≥ 3 · 气泡大小 = 专辑数</span>
-                    </div>
-                    <div class="chart" id="chart-quadrant"></div>
-                </section>
-
-                <!-- 中栏下排：专辑维度 + 全量散点（课程要求的第 4、6 张图） -->
-                <div class="center-bottom">
-
-                    <section class="panel" id="card-album">
-                        <div class="panel-head">
-                            <h2>专辑曲目数 × 歌曲热度</h2>
-                            <span class="badge">4 箱</span>
-                            <span class="head-sub">曲目数 ≥ 2 的专辑</span>
-                        </div>
-                        <div class="chart" id="chart-album"></div>
-                    </section>
-
-                    <section class="panel" id="card-scatter">
-                        <div class="panel-head">
-                            <h2>热度 × 歌曲时长</h2>
-                            <span class="badge">28,356</span>
-                            <span class="head-sub">全量散点 · large 模式</span>
-                        </div>
-                        <div class="chart" id="chart-scatter"></div>
-                    </section>
-
+            <!-- KPI 翻牌区 -->
+            <section class="panel kpi-strip" id="kpi-strip">
+                <div class="kpi">
+                    <div class="kpi-value"><span class="num" id="kpi-songs">0</span><small>首</small></div>
+                    <div class="kpi-label">去重歌曲</div>
                 </div>
+                <div class="kpi">
+                    <div class="kpi-value"><span class="num" id="kpi-artists">0</span><small>位</small></div>
+                    <div class="kpi-label">歌手</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-value"><span class="num" id="kpi-albums">0</span><small>张</small></div>
+                    <div class="kpi-label">专辑</div>
+                </div>
+                <div class="kpi warm">
+                    <div class="kpi-value"><span class="num" id="kpi-pop">0</span><small>分</small></div>
+                    <div class="kpi-label">平均热度</div>
+                </div>
+                <div class="kpi purple">
+                    <div class="kpi-value"><span class="num" id="kpi-fav">0</span><small>/</small><span class="num" id="kpi-tag">0</span></div>
+                    <div class="kpi-label">关注 / 收藏</div>
+                </div>
+            </section>
 
-            </div>
+            <!-- 可配置图表：默认放在中间最大位，可换维度 / 度量 / 图形 -->
+            <section class="panel panel-main" id="card-custom">
+                <div class="panel-head">
+                    <h2 id="custom-title">作品数 × 平均热度 四象限</h2>
+                    <span class="badge">可配置</span>
+                    <span class="head-sub" id="custom-sub">作品数 ≥ 3 · 气泡大小 = 专辑数</span>
+                </div>
+                <div class="custom-bar">
+                    <span class="cfg-label">维度</span>
+                    <select id="cfg-dim" class="cfg-select"></select>
+                    <span class="cfg-label">度量</span>
+                    <select id="cfg-measure" class="cfg-select"></select>
+                    <span class="cfg-label">图形</span>
+                    <select id="cfg-type" class="cfg-select"></select>
+                </div>
+                <div class="chart" id="chart-custom"></div>
+            </section>
 
-            <!-- ---------- 右栏 27% ---------- -->
-            <div class="col col-right">
+            <!-- 逐年趋势 -->
+            <section class="panel" id="card-trend">
+                <div class="panel-head">
+                    <h2>逐年歌曲数 × 平均热度</h2>
+                    <span class="badge">1957–2019</span>
+                    <span class="head-sub" id="trend-sub">62 年 · 双轴</span>
+                </div>
+                <div class="chart" id="chart-trend"></div>
+            </section>
 
-                <section class="panel" id="card-span">
-                    <div class="panel-head">
-                        <h2>歌手活跃年份跨度</h2>
-                        <span class="badge">TOP20</span>
-                        <span class="head-sub">作品数 ≥ 3 首</span>
+            <!-- 长尾分布 -->
+            <section class="panel" id="card-dist">
+                <div class="panel-head">
+                    <h2>歌手作品数长尾分布</h2>
+                    <span class="badge">对数轴</span>
+                    <span class="head-sub">10,692 位歌手</span>
+                </div>
+                <div class="chart" id="chart-dist"></div>
+            </section>
+
+            <!-- TOP20 -->
+            <section class="panel" id="card-top">
+                <div class="panel-head">
+                    <h2>平均热度 TOP20 歌手</h2>
+                    <span class="badge">TOP20</span>
+                    <span class="head-sub">作品数 ≥ 3 首</span>
+                </div>
+                <div class="chart" id="chart-top"></div>
+            </section>
+
+            <!-- 专辑曲目数分箱 -->
+            <section class="panel" id="card-album">
+                <div class="panel-head">
+                    <h2>专辑曲目数 × 歌曲热度</h2>
+                    <span class="badge">4 箱</span>
+                    <span class="head-sub">曲目数 ≥ 2 的专辑</span>
+                </div>
+                <div class="chart" id="chart-album"></div>
+            </section>
+
+            <!-- 热度 × 时长 -->
+            <section class="panel" id="card-scatter">
+                <div class="panel-head">
+                    <h2>热度 × 歌曲时长</h2>
+                    <span class="badge">28,356</span>
+                    <span class="head-sub">全量散点 · large 模式</span>
+                </div>
+                <div class="chart" id="chart-scatter"></div>
+            </section>
+
+            <!-- 年份跨度 -->
+            <section class="panel" id="card-span">
+                <div class="panel-head">
+                    <h2>歌手活跃年份跨度</h2>
+                    <span class="badge">TOP20</span>
+                    <span class="head-sub">作品数 ≥ 3 首</span>
+                </div>
+                <div class="chart" id="chart-span"></div>
+            </section>
+
+            <!-- 合并面板：关注歌手 / 收藏歌曲 -->
+            <section class="panel panel-form" id="card-search">
+                <div class="panel-head">
+                    <h2 id="search-title">关注歌手</h2>
+                    <span class="badge accent">写库</span>
+                    <span class="head-sub" id="search-count">0 条</span>
+                </div>
+                <div class="form-body">
+                    <div class="mode-switch" id="mode-switch">
+                        <button class="mode-btn active" data-mode="artist">按歌手搜索</button>
+                        <button class="mode-btn" data-mode="song">按歌曲搜索</button>
                     </div>
-                    <div class="chart" id="chart-span"></div>
-                </section>
 
-                <!-- 合并面板：关注歌手 / 收藏歌曲（一个搜索框 + 一个备注框 + 一个按钮） -->
-                <section class="panel panel-form" id="card-search">
-                    <div class="panel-head">
-                        <h2 id="search-title">关注歌手</h2>
-                        <span class="badge accent">写库</span>
-                        <span class="head-sub" id="search-count">0 条</span>
+                    <div class="row">
+                        <input type="text" id="q-input" placeholder="歌手名，如 Billie Eilish（不区分大小写）">
+                        <input type="text" id="note-input" class="short" placeholder="备注（可空）">
+                        <button id="q-btn-search">搜索</button>
+                        <button id="save-btn">关注</button>
                     </div>
-                    <div class="form-body">
-                        <!-- 模式切换：点击直接切，不是下拉框；默认「按歌手搜索」，不记忆 -->
-                        <div class="mode-switch" id="mode-switch">
-                            <button class="mode-btn active" data-mode="artist">按歌手搜索</button>
-                            <button class="mode-btn" data-mode="song">按歌曲搜索</button>
-                        </div>
 
-                        <!-- 一行三件：名称 / 备注（歌曲模式下即标签） / 动作按钮 -->
-                        <div class="row">
-                            <input type="text" id="q-input" placeholder="歌手名，如 Billie Eilish（不区分大小写）">
-                            <input type="text" id="note-input" class="short" placeholder="备注（可空）">
-                            <button id="q-btn-search">搜索</button>
-                            <button id="save-btn">关注</button>
-                        </div>
-
-                        <!-- 搜索结果（选中后只把名字填进上面的输入框，这个列表保持不变） -->
-                        <div class="list pick-list" id="result-list">
-                            <div class="empty">输入关键词开始搜索</div>
-                        </div>
-
-                        <!-- 已收藏列表：两种模式共用，按表格排布（名称 / 库内外 / 备注或标签 / 时间 / 操作） -->
-                        <div class="list saved-list" id="saved-list">
-                            <div class="empty">还没有关注任何歌手</div>
-                        </div>
+                    <div class="list pick-list" id="result-list">
+                        <div class="empty">输入关键词开始搜索</div>
                     </div>
-                </section>
 
-            </div>
+                    <div class="list saved-list" id="saved-list">
+                        <div class="empty">还没有关注任何歌手</div>
+                    </div>
+                </div>
+            </section>
 
         </div>
+
+        <!-- ==================== 自定义设置抽屉 ==================== -->
+        <aside class="drawer" id="drawer">
+            <div class="drawer-head">
+                <h3>自定义外观</h3>
+                <button class="ghost mini" id="drawer-close">收起</button>
+            </div>
+
+            <div class="drawer-body">
+                <div class="cfg-group">
+                    <div class="cfg-group-title">显示面板</div>
+                    <div class="cfg-checks" id="cfg-panels"></div>
+                </div>
+
+                <div class="cfg-group">
+                    <div class="cfg-group-title">背景与毛玻璃</div>
+                    <label class="cfg-row">
+                        <span>底色</span>
+                        <input type="color" id="cfg-bg" value="#070C16">
+                    </label>
+                    <label class="cfg-row">
+                        <span>毛玻璃 <b id="cfg-blur-val">0</b> px</span>
+                        <input type="range" id="cfg-blur" min="0" max="24" step="1" value="0">
+                    </label>
+                    <label class="cfg-row">
+                        <span>面板透明度 <b id="cfg-alpha-val">92</b> %</span>
+                        <input type="range" id="cfg-alpha" min="30" max="100" step="1" value="92">
+                    </label>
+                </div>
+
+                <div class="cfg-group">
+                    <div class="cfg-group-title">渐变背景（叠加在底色上）</div>
+                    <label class="cfg-row">
+                        <span>颜色 A</span>
+                        <input type="color" id="cfg-c1" value="#22D3EE">
+                    </label>
+                    <label class="cfg-row">
+                        <span>颜色 B</span>
+                        <input type="color" id="cfg-c2" value="#A78BFA">
+                    </label>
+                    <label class="cfg-row">
+                        <span>强度 <b id="cfg-mix-val">30</b> %</span>
+                        <input type="range" id="cfg-mix" min="0" max="80" step="1" value="30">
+                    </label>
+                    <label class="cfg-row">
+                        <span>方向 <b id="cfg-deg-val">135</b>°</span>
+                        <input type="range" id="cfg-deg" min="0" max="360" step="5" value="135">
+                    </label>
+                </div>
+
+                <div class="drawer-actions">
+                    <button id="btn-save-theme">保存</button>
+                    <button class="ghost" id="btn-reset-theme">恢复默认</button>
+                </div>
+                <p class="drawer-tip">
+                    拖动面板标题栏可移动，拖动四周边缘可缩放；布局与外观都会自动记住（存在浏览器本地）。
+                </p>
+            </div>
+        </aside>
 
         <div id="toast"></div>
 
@@ -184,5 +237,6 @@
 
 <script src="js/echarts.min.js"></script>
 <script src="js/dashboard.js"></script>
+<script src="js/layout.js"></script>
 </body>
 </html>
