@@ -102,17 +102,28 @@
                     <div class="chart" id="chart-quadrant"></div>
                 </section>
 
-                <!-- 底部滚动流 -->
-                <section class="panel panel-flow" id="card-activity">
-                    <div class="panel-head">
-                        <h2>实时动态</h2>
-                        <span class="badge">关注 / 标签</span>
-                        <span class="head-sub" id="activity-sub">最新 20 条</span>
-                    </div>
-                    <div class="flow-wrap">
-                        <ul class="flow" id="flow-list"></ul>
-                    </div>
-                </section>
+                <!-- 中栏下排：专辑维度 + 全量散点（课程要求的第 4、6 张图） -->
+                <div class="center-bottom">
+
+                    <section class="panel" id="card-album">
+                        <div class="panel-head">
+                            <h2>专辑曲目数 × 歌曲热度</h2>
+                            <span class="badge">4 箱</span>
+                            <span class="head-sub">曲目数 ≥ 2 的专辑</span>
+                        </div>
+                        <div class="chart" id="chart-album"></div>
+                    </section>
+
+                    <section class="panel" id="card-scatter">
+                        <div class="panel-head">
+                            <h2>热度 × 歌曲时长</h2>
+                            <span class="badge">28,356</span>
+                            <span class="head-sub">全量散点 · large 模式</span>
+                        </div>
+                        <div class="chart" id="chart-scatter"></div>
+                    </section>
+
+                </div>
 
             </div>
 

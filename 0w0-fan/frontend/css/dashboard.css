@@ -189,8 +189,17 @@ body {
 }
 
 .col-center {
-    grid-template-rows: 110px 1fr 150px;
+    /* KPI 翻牌区 + 主视觉（四象限）+ 下排两张图
+       （原「实时动态」滚动条已按需求移除，位置让给课程要求的第 4、6 张图） */
+    grid-template-rows: 110px 1fr 288px;
     gap: 14px;
+}
+
+.center-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    min-height: 0;
 }
 
 .col-right {
@@ -370,108 +379,6 @@ body {
 
 .kpi.purple .kpi-value small {
     color: rgba(167, 139, 250, 0.6);
-}
-
-/* ---------- 底部滚动流 ---------- */
-
-.flow-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    position: relative;
-}
-
-/* 上下渐隐遮罩，滚动更自然 */
-.flow-wrap::before,
-.flow-wrap::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 14px;
-    z-index: 2;
-    pointer-events: none;
-}
-
-.flow-wrap::before {
-    top: 0;
-    background: linear-gradient(180deg, rgba(9, 17, 31, 0.95), transparent);
-}
-
-.flow-wrap::after {
-    bottom: 0;
-    background: linear-gradient(0deg, rgba(9, 17, 31, 0.95), transparent);
-}
-
-.flow {
-    list-style: none;
-    will-change: transform;
-}
-
-.flow li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 30px;
-    padding: 0 8px;
-    font-size: 12px;
-    border-bottom: 1px dashed rgba(148, 163, 184, 0.10);
-}
-
-.flow li:nth-child(odd) {
-    background: rgba(34, 211, 238, 0.035);
-}
-
-.flow .lv {
-    flex: none;
-    width: 46px;
-    text-align: center;
-    font-size: 10px;
-    line-height: 16px;
-    border-radius: 2px;
-    letter-spacing: 0.5px;
-}
-
-.flow .lv-favorite {
-    color: #04121C;
-    background: linear-gradient(180deg, #38E0F5, #17B6D4);
-}
-
-.flow .lv-tag {
-    color: #1B1030;
-    background: linear-gradient(180deg, #C4B5FD, #A78BFA);
-}
-
-.flow .f-time {
-    flex: none;
-    font-family: "Consolas", monospace;
-    font-size: 11px;
-    color: #4E5F76;
-}
-
-.flow .f-title {
-    flex: none;
-    max-width: 260px;
-    color: var(--text-title);
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.flow .f-detail {
-    flex: 1;
-    min-width: 0;
-    color: var(--text-sub);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.flow .empty-row {
-    justify-content: center;
-    color: #445468;
-    letter-spacing: 1px;
 }
 
 /* ---------- 表单 / 列表 ---------- */

@@ -14,6 +14,10 @@
     var DESIGN_H = 1080;
     var stage = document.getElementById('stage');
 
+    /**
+     * 舞台等比缩放：1920×1080 的设计稿缩放到当前窗口，居中、留黑边、不出现滚动条。
+     * 因为舞台内部像素恒定，所以图表不需要监听 resize 重绘 —— 这是本方案最省心的地方。
+     */
     function fitStage() {
         var scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
         stage.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
@@ -86,6 +90,13 @@
     }
 
     /* 定时器统一登记，标签页隐藏时暂停（大屏要 7×24 小时跑） */
+    /**
+     * 统一注册定时任务，并在标签页隐藏时自动跳过这一拍。
+     * 大屏要 7×24 小时挂在墙上，切到后台还全速跑动画既费电又会让 ECharts 队列堆积。
+     * @param {number} ms   间隔毫秒
+     * @param {Function} fn 回调
+     * @return {number} setInterval 的句柄（预留手动清除用）
+     */
     function every(ms, fn) {
         return setInterval(function () {
             if (document.hidden) {
@@ -134,6 +145,13 @@
     }
 
     /* KPI 数字 0 → 目标值滚动（技能规范：1.2s easeOut） */
+    /**
+     * KPI 数字滚动动画：0 → 目标值，1.2 秒 easeOut。
+     * 用 requestAnimationFrame 而不是 setInterval，动画结束自动停止，不会留下定时器。
+     * @param {HTMLElement} el       要写入数字的元素
+     * @param {number} target        目标值
+     * @param {number} [decimals=0]  保留几位小数（平均热度用 2 位）
+     */
     function countUp(el, target, decimals) {
         var duration = 1200;
         var t0 = performance.now();
@@ -160,6 +178,9 @@
         return n < 10 ? '0' + n : '' + n;
     }
 
+    /**
+     * 顶部实时时钟：yyyy-MM-dd HH:mm:ss，每秒刷新一次（大屏的「活着的证据」）。
+     */
     function tickClock() {
         var d = new Date();
         document.getElementById('clock').textContent =
@@ -170,6 +191,14 @@
     /* ==================================================================
      * 3. 图 1：逐年歌曲数 × 平均热度（双轴 + 窗口自动巡航）
      * ================================================================== */
+    /**
+     * 图 1：逐年歌曲数 × 平均热度（双轴组合图）
+     *   横轴：发行年份，类目轴，1957–2019 共 62 项
+     *   左纵轴：歌曲数（首）—— 柱状系列，青色渐变，数据量级 1 ~ 7,406
+     *   右纵轴：平均热度 —— 折线系列，金色发光 + 面积渐变，固定 0~100
+     *   交互：dataZoom 只开 24 年窗口，每 1.5 秒右移一格循环播放，形成「巡航」动效
+     *   数据：/api/year/trend（2020 年数据被截断，默认不取）
+     */
     function renderTrend(d) {
         var chart = echarts.init(document.getElementById('chart-trend'));
         var years = d.points.map(function (p) { return p.year; });
@@ -273,6 +302,14 @@
     /* ==================================================================
      * 4. 图 2：歌手作品数长尾分布（对数轴）
      * ================================================================== */
+    /**
+     * 图 2：歌手作品数长尾分布（对数柱状图）
+     *   横轴：作品数分箱 1 / 2 / 3 / 4 / 5 / 6-10 / 11-20 / 21+（类目轴）
+     *   纵轴：歌手数，**对数刻度** —— 首箱 6,496 位与末箱 139 位差 47 倍，
+     *         线性轴会把后面几箱压成一条线，所以 min=100 / max=10000 取 log
+     *   样式：最后一箱（21+ 高产歌手）用金色高亮，其余青色；柱顶标数值
+     *   数据：/api/artist/distribution（8 个箱固定顺序，缺箱补 0）
+     */
     function renderDistribution(data) {
         var chart = echarts.init(document.getElementById('chart-dist'));
         var bins = data.map(function (d) { return d.bin; });
@@ -336,6 +373,15 @@
     /* ==================================================================
      * 5. 图 3：平均热度 TOP20（轮播高亮）
      * ================================================================== */
+    /**
+     * 图 3：平均热度 TOP20（横向条形图 + 轮播高亮）
+     *   纵轴：歌手名（类目轴），按平均热度降序 —— 注意数据是反着喂的，
+     *         因为 ECharts 类目轴默认自下而上，reverse() 之后第 1 名才在顶部
+     *   横轴：平均热度 0~100，柱端标数值
+     *   样式：颜色随热度线性变化（40 分以下偏淡青，70 分以上转金），柱端圆角
+     *   动效：每 2.4 秒高亮下一条，配合 tooltip 观察明细
+     *   数据：/api/artist/top?limit=20（只统计作品数 ≥ 3 的歌手）
+     */
     function renderTop(rows) {
         var chart = echarts.init(document.getElementById('chart-top'));
         var rev = rows.slice().reverse();
@@ -412,6 +458,15 @@
     /* ==================================================================
      * 6. 图 4：歌手活跃年份跨度 TOP20
      * ================================================================== */
+    /**
+     * 图 4：歌手活跃年份跨度 TOP20（横向区间条）
+     *   做法：用两个堆叠系列拼出「区间条」——
+     *         offset 系列：从 1940 到该歌手最早年份，颜色透明，只用来占位；
+     *         跨度系列：长度 = maxYear - minYear，青→紫渐变
+     *   横轴：年份（数值轴，显示时 +1940 还原成真实年份）
+     *   纵轴：歌手名，inverse 让跨度最大的排在最上面
+     *   数据：/api/artist/span?limit=20（作品数 ≥ 3 且年份非空）
+     */
     function renderSpan(rows) {
         var chart = echarts.init(document.getElementById('chart-span'));
         var names = rows.map(function (r) { return r.name; });
@@ -497,6 +552,17 @@
      * 7. 图 5（主视觉）：作品数 × 平均热度 四象限气泡
      *    点大小 = 该歌手专辑数（v2 新维度）
      * ================================================================== */
+    /**
+     * 图 5（主视觉）：作品数 × 平均热度 四象限气泡图
+     *   横轴：作品数，**对数轴** —— 从 3 首到 130 首跨两个数量级，
+     *         线性轴会把 2,400 多个点全挤在左侧
+     *   纵轴：平均热度 0~100
+     *   分割线：x = 作品中位数 5，y = 全局均值 42.48（markLine 虚线）
+     *   气泡大小：该歌手的专辑数（v2 新维度），sqrt 开方避免大值过分夸张
+     *   四个系列：明星区/精品区/走量区/长尾区，各自一种颜色 + 图例可点选过滤
+     *   markArea：给「多且热」和「少而热」两个象限铺一层淡底色
+     *   数据：/api/artist/quadrant（2,486 位歌手）
+     */
     function renderQuadrant(d) {
         var chart = echarts.init(document.getElementById('chart-quadrant'));
         var medianX = d.medianWorks;
@@ -628,53 +694,138 @@
             '作品数 ≥ 3 · <b>' + num(d.count) + '</b> 位歌手 · 气泡大小 = 专辑数（最大 ' + maxAlbum + ' 张）';
     }
 
+
     /* ==================================================================
-     * 8. 底部滚动流：最新关注 / 标签
+     * 8. 图 6：专辑曲目数 × 歌曲平均热度（课程要求的第 4 张图）
      * ================================================================== */
-    var flowY = 0;
+    /**
+     * 横轴：专辑曲目数分箱 2 / 3-4 / 5-9 / 10+（只统计曲目数 ≥ 2 的专辑）
+     * 纵轴：该箱内**全部歌曲**的平均热度（歌曲加权，不是专辑等权）
+     * 柱顶标签：第一行平均热度，第二行该箱专辑数
+     * 数据：/api/album/bins（4 个箱，专辑数 2169 / 1217 / 464 / 89）
+     */
+    function renderAlbum(rows) {
+        var NL = String.fromCharCode(10);   // 换行符（柱顶标签要分两行显示）
+        var chart = echarts.init(document.getElementById('chart-album'));
+        var bins = rows.map(function (r) { return r.bin + ' 首'; });
+        var vals = rows.map(function (r) { return r.avgPop; });
+        var albums = rows.map(function (r) { return r.albums; });
+        var min = Math.floor(Math.min.apply(null, vals) - 2);
+        var max = Math.ceil(Math.max.apply(null, vals) + 2);
 
-    function renderActivity(items) {
-        var ul = document.getElementById('flow-list');
-        document.getElementById('activity-sub').textContent = '最新 ' + items.length + ' 条';
-
-        if (!items || !items.length) {
-            ul.style.transform = 'translateY(0)';
-            ul.innerHTML = '<li class="empty-row">还没有动态，去右边「关注歌手」或「歌曲打标签」写一条试试</li>';
-            return;
-        }
-
-        var rows = items.map(function (it) {
-            var isFav = it.type === 'favorite';
-            return '<li>' +
-                '<span class="lv lv-' + (isFav ? 'favorite' : 'tag') + '">' + (isFav ? '关注' : '标签') + '</span>' +
-                '<span class="f-time">' + esc((it.time || '').slice(5, 19)) + '</span>' +
-                '<span class="f-title" title="' + esc(it.title) + '">' + esc(it.title) + '</span>' +
-                '<span class="f-detail" title="' + esc(it.detail) + '">' + esc(it.detail || '') + '</span>' +
-                '</li>';
-        }).join('');
-
-        /* 复制一份接在尾部，实现无缝滚动 */
-        ul.innerHTML = rows + rows;
-        flowY = 0;
-        ul.style.transform = 'translateY(0)';
+        chart.setOption({
+            grid: { left: 44, right: 16, top: 30, bottom: 26 },
+            tooltip: Object.assign({
+                trigger: 'axis',
+                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(244,114,182,0.07)' } },
+                formatter: function (p) {
+                    var i = p[0].dataIndex;
+                    return '专辑曲目数 <b>' + rows[i].bin + '</b> 首<br/>专辑数 ' + num(rows[i].albums) +
+                        ' 张<br/>歌曲平均热度 <b style="color:' + C.pink + '">' + rows[i].avgPop.toFixed(2) + '</b>';
+                }
+            }, tip()),
+            xAxis: {
+                type: 'category',
+                data: bins,
+                axisLine: { lineStyle: { color: C.axis } },
+                axisTick: { show: false },
+                axisLabel: AXIS_TEXT
+            },
+            yAxis: {
+                type: 'value',
+                min: min,
+                max: max,
+                splitLine: SPLIT,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 })
+            },
+            series: [{
+                type: 'bar',
+                barWidth: '42%',
+                data: vals.map(function (v, i) {
+                    return {
+                        value: v,
+                        itemStyle: {
+                            borderRadius: [3, 3, 0, 0],
+                            color: grad(0, 1, 0, 0, 'rgba(244,114,182,0.12)',
+                                i === 0 ? 'rgba(244,114,182,0.9)' : 'rgba(167,139,250,0.78)')
+                        }
+                    };
+                }),
+                label: {
+                    show: true,
+                    position: 'top',
+                    fontSize: 10,
+                    lineHeight: 13,
+                    fontFamily: 'Consolas, monospace',
+                    color: '#9FB3C8',
+                    formatter: function (p) {
+                        return p.value.toFixed(1) + NL + num(albums[p.dataIndex]) + '张';
+                    }
+                }
+            }]
+        });
     }
-
-    function loadActivity() {
-        return getJSON('/api/activity/recent?limit=20').then(renderActivity);
-    }
-
-    every(40, function () {
-        var ul = document.getElementById('flow-list');
-        var half = ul.scrollHeight / 2;
-        if (!half) {
-            return;
-        }
-        flowY = (flowY + 0.8) % half;
-        ul.style.transform = 'translateY(-' + flowY.toFixed(1) + 'px)';
-    });
 
     /* ==================================================================
-     * 9. 交互件 1：关注歌手
+     * 9. 图 7：热度 × 歌曲时长（课程要求的第 6 张图，28,356 点）
+     * ================================================================== */
+    /**
+     * 横轴：时长（分钟，0~9），纵轴：热度（0~100），一个点一首歌
+     * 性能：开 large + largeThreshold + progressive，否则 2.8 万个点会把浏览器拖卡
+     * 数据：/api/song/scatter（实测 JSON 502 KB / 0.13 秒）
+     */
+    function renderScatter(d) {
+        var chart = echarts.init(document.getElementById('chart-scatter'));
+        var data = d.points.map(function (p) { return [p.x, p.y]; });
+
+        chart.setOption({
+            grid: { left: 42, right: 16, top: 26, bottom: 26 },
+            tooltip: Object.assign({
+                trigger: 'item',
+                formatter: function (p) {
+                    return '时长 <b style="color:' + C.accent + '">' + p.data[0] + '</b> 分<br/>热度 <b style="color:' +
+                        C.warm + '">' + p.data[1] + '</b>';
+                }
+            }, tip()),
+            xAxis: {
+                type: 'value',
+                min: 0,
+                max: 9,
+                name: '时长（分钟）',
+                nameTextStyle: { color: C.textSub, fontSize: 10 },
+                axisLine: { lineStyle: { color: C.axis } },
+                axisTick: { show: false },
+                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 }),
+                splitLine: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                name: '热度',
+                nameTextStyle: { color: C.textSub, fontSize: 10, padding: [0, 0, 0, -12] },
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: Object.assign({}, AXIS_TEXT, { fontSize: 10 }),
+                splitLine: SPLIT
+            },
+            series: [{
+                type: 'scatter',
+                large: true,
+                largeThreshold: 2000,
+                progressive: 5000,
+                symbolSize: 3,
+                itemStyle: { color: 'rgba(34,211,238,0.38)' },
+                emphasis: { itemStyle: { color: C.warm } },
+                data: data
+            }]
+        });
+    }
+
+    /* ==================================================================
+     * 10. 交互件 1：关注歌手
      * ================================================================== */
     var favorites = [];
 
@@ -709,7 +860,7 @@
     }
 
     function afterWrite() {
-        return Promise.all([loadFavorites(), loadActivity(), refreshCounters()]);
+        return Promise.all([loadFavorites(), refreshCounters()]);
     }
 
     function refreshCounters() {
@@ -806,7 +957,7 @@
     }
 
     /* ==================================================================
-     * 10. 交互件 2：歌曲打标签
+     * 11. 交互件 2：歌曲打标签
      * ================================================================== */
     var pickedSong = null;
     var searchTimer = null;
@@ -903,7 +1054,7 @@
             .then(function () {
                 input.value = '';
                 toast('已添加标签「' + tag + '」');
-                return Promise.all([loadTags(), loadActivity(), refreshCounters()]);
+                return Promise.all([loadTags(), refreshCounters()]);
             })
             .catch(function (e) { toast(e.message, true); });
     }
@@ -912,7 +1063,7 @@
         getJSON('/api/tag/' + id, { method: 'DELETE' })
             .then(function () {
                 toast('标签已删除');
-                return Promise.all([loadTags(), loadActivity(), refreshCounters()]);
+                return Promise.all([loadTags(), refreshCounters()]);
             })
             .catch(function (e) { toast(e.message, true); });
     }
@@ -962,7 +1113,7 @@
     }
 
     /* ==================================================================
-     * 11. KPI 翻牌
+     * 12. KPI 翻牌
      * ================================================================== */
     function renderKPI(o) {
         countUp(document.getElementById('kpi-songs'), o.songs);
@@ -974,7 +1125,7 @@
     }
 
     /* ==================================================================
-     * 12. 启动
+     * 13. 启动
      * ================================================================== */
     function boot() {
         tickClock();
@@ -986,7 +1137,9 @@
             getJSON('/api/artist/distribution'),
             getJSON('/api/artist/top?limit=20'),
             getJSON('/api/artist/span?limit=20'),
-            getJSON('/api/artist/quadrant')
+            getJSON('/api/artist/quadrant'),
+            getJSON('/api/album/bins'),
+            getJSON('/api/song/scatter')
         ]).then(function (res) {
             renderKPI(res[0]);
             renderTrend(res[1]);
@@ -994,6 +1147,8 @@
             renderTop(res[3]);
             renderSpan(res[4]);
             renderQuadrant(res[5]);
+            renderAlbum(res[6]);
+            renderScatter(res[7]);
         }).catch(function (e) {
             toast('数据加载失败：' + e.message, true);
             console.error(e);
@@ -1003,7 +1158,6 @@
         bindTags();
 
         loadFavorites().catch(function (e) { toast('关注列表加载失败：' + e.message, true); });
-        loadActivity().catch(function (e) { toast('动态流加载失败：' + e.message, true); });
     }
 
     if (document.readyState === 'loading') {
