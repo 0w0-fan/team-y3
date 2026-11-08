@@ -20,14 +20,14 @@ public interface FavoriteMapper {
     /**
      * 查全部关注记录，最新关注的排在最前（created_at 相同时按 id 倒序，保证顺序稳定）。
      */
-    @Select("SELECT id, artist_name, note, created_at FROM artist_favorite ORDER BY created_at DESC, id DESC")
+    @Select("SELECT id, artist_name, note, in_dataset, created_at FROM artist_favorite ORDER BY created_at DESC, id DESC")
     List<ArtistFavorite> findAll();
 
     /**
      * 按主键查一条。新增/修改后用它回读，保证返回给前端的 createdAt 是数据库里的真实值。
      * @param id 关注记录主键
      */
-    @Select("SELECT id, artist_name, note, created_at FROM artist_favorite WHERE id = #{id}")
+    @Select("SELECT id, artist_name, note, in_dataset, created_at FROM artist_favorite WHERE id = #{id}")
     ArtistFavorite findById(@Param("id") Long id);
 
     /**
@@ -48,14 +48,14 @@ public interface FavoriteMapper {
      * 新增一条关注记录。@Options(useGeneratedKeys) 会把自增主键回填到入参对象的 id 上，
      * 便于紧接着回读整条记录返回给前端。
      */
-    @Insert("INSERT INTO artist_favorite (artist_name, note) VALUES (#{artistName}, #{note})")
+    @Insert("INSERT INTO artist_favorite (artist_name, note, in_dataset) VALUES (#{artistName}, #{note}, #{inDataset})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ArtistFavorite favorite);
 
     /**
      * 整条更新（歌手名与备注一起写）。页面上的「改备注」只会传 note，artist_name 原样带回。
      */
-    @Update("UPDATE artist_favorite SET artist_name = #{artistName}, note = #{note} WHERE id = #{id}")
+    @Update("UPDATE artist_favorite SET artist_name = #{artistName}, note = #{note}, in_dataset = #{inDataset} WHERE id = #{id}")
     int update(ArtistFavorite favorite);
 
     /**

@@ -3,6 +3,7 @@ package com.fan.spotify.service;
 import com.fan.spotify.common.BizException;
 import com.fan.spotify.entity.ArtistFavorite;
 import com.fan.spotify.mapper.FavoriteMapper;
+import com.fan.spotify.mapper.SongMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,9 +16,21 @@ import java.util.List;
 public class FavoriteService {
 
     private final FavoriteMapper favoriteMapper;
+    private final SongMapper songMapper;
 
-    public FavoriteService(FavoriteMapper favoriteMapper) {
+    public FavoriteService(FavoriteMapper favoriteMapper, SongMapper songMapper) {
         this.favoriteMapper = favoriteMapper;
+        this.songMapper = songMapper;
+    }
+
+    /**
+     * 判断这位歌手在数据集里是否真实存在，写进 in_dataset 列。
+     * 库里没有的歌手也允许关注（用户想记什么就记什么），只是页面上会标「库外」。
+     * @param artistName 歌手名
+     * @return 1 / 0
+     */
+    private boolean existsInDataset(String artistName) {
+        return songMapper.countArtistInDataset(artistName) > 0;
     }
 
     /**
@@ -43,6 +56,7 @@ public class FavoriteService {
         ArtistFavorite f = new ArtistFavorite();
         f.setArtistName(name);
         f.setNote(trimNote(note));
+        f.setInDataset(existsInDataset(name));   // 库里有没有这位歌手，落库时判断一次
         favoriteMapper.insert(f);
         return favoriteMapper.findById(f.getId());
     }
@@ -67,6 +81,7 @@ public class FavoriteService {
                 throw BizException.conflict("歌手「" + name + "」已经在关注列表里了");
             }
             exist.setArtistName(name);
+            exist.setInDataset(existsInDataset(name));   // 改了名字就要重新判断
         }
         if (note != null) {
             exist.setNote(trimNote(note));

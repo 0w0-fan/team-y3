@@ -189,18 +189,54 @@ public interface SongMapper {
             + "GROUP BY release_year ORDER BY release_year")
     List<YearPoint> selectYearTrend(@Param("from") int from, @Param("to") int to);
 
+    /* ---------------- 交互件：歌手联想搜索与存在性判断 ---------------- */
+
+    /**
+     * 判断一位歌手在数据集里是否真实存在（用于「关注歌手」打「库内/库外」标记）。
+     * 比较时强制用 utf8mb4_general_ci：库表本身是 utf8mb4_bin（区分大小写），
+     * 用户手输 "billie eilish" 也应该算命中 "Billie Eilish"。
+     * @param name 歌手名
+     * @return 命中行数，&gt;0 表示库里有这位歌手
+     */
+    @Select("SELECT COUNT(*) FROM artist_track_view "
+            + "WHERE track_artist IS NOT NULL AND track_artist <> 'NA' "
+            + "AND track_artist COLLATE utf8mb4_general_ci = #{name}")
+    int countArtistInDataset(@Param("name") String name);
+
+    /**
+     * 歌手联想：输入片段，返回匹配的歌手及其作品数/平均热度/专辑数，
+     * 供「按歌手搜索」模式的候选列表用（点一下就把名字填进输入框）。
+     * 注意分组仍走 utf8mb4_bin，所以 "Nimo" 与 "nimo" 不会被合并成一位歌手；
+     * 只有 LIKE 匹配这一步是不区分大小写的。
+     * @param q     歌手名片段
+     * @param limit 返回条数上限
+     */
+    @Select("SELECT track_artist AS name, "
+            + "       COUNT(DISTINCT track_id) AS works, "
+            + "       ROUND(AVG(track_popularity), 2) AS avgPop, "
+            + "       COUNT(DISTINCT track_album_id) AS albumCount "
+            + "FROM artist_track_view "
+            + "WHERE track_artist IS NOT NULL AND track_artist <> 'NA' "
+            + "AND track_artist COLLATE utf8mb4_general_ci LIKE CONCAT('%', #{q}, '%') "
+            + "GROUP BY track_artist "
+            + "ORDER BY works DESC, avgPop DESC "
+            + "LIMIT #{limit}")
+    List<ArtistPoint> searchArtists(@Param("q") String q, @Param("limit") int limit);
+
     /* ---------------- 交互件：歌曲搜索 ---------------- */
 
     /**
-     * 歌曲检索：给「歌曲打标签」交互件找歌用。
-     * 歌名或歌手名做模糊匹配（LIKE），按热度降序返回，热门的更容易被选中。
+     * 歌曲检索：给「按歌曲搜索」模式找歌用。
+     * 只匹配歌名（不匹配歌手名——要找歌手请用上面的 searchArtists），
+     * 并且强制 utf8mb4_general_ci，让 "LOVE" / "love" 都能查到。
+     * 按热度降序返回，热门的排在前面更容易被选中。
      * @param q     关键词，Service 层已做长度校验
      * @param limit 返回条数上限
      */
     @Select("SELECT track_id AS trackId, track_name AS trackName, track_artist AS artist, "
             + "       track_popularity AS popularity, duration_min AS durationMin "
             + "FROM artist_track_view "
-            + "WHERE track_name LIKE CONCAT('%', #{q}, '%') OR track_artist LIKE CONCAT('%', #{q}, '%') "
+            + "WHERE track_name COLLATE utf8mb4_general_ci LIKE CONCAT('%', #{q}, '%') "
             + "ORDER BY track_popularity DESC, track_name ASC "
             + "LIMIT #{limit}")
     List<SongBrief> searchSongs(@Param("q") String q, @Param("limit") int limit);

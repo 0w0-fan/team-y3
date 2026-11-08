@@ -1,6 +1,7 @@
 package com.fan.spotify.service;
 
 import com.fan.spotify.common.BizException;
+import com.fan.spotify.dto.ArtistPoint;
 import com.fan.spotify.dto.SongBrief;
 import com.fan.spotify.mapper.SongMapper;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,25 @@ public class SongService {
      * @param limit   返回条数，默认 8，最多 30
      * @return 按热度降序的歌曲摘要列表
      */
+    /**
+     * 歌手联想搜索：给「按歌手搜索」模式的候选列表用。
+     * 大小写不敏感（SQL 里强制了 utf8mb4_general_ci），所以 "nimo" 也能搜到 "nimo"。
+     * @param keyword 歌手名片段
+     * @param limit   返回条数，默认 8，最多 30
+     * @return 按作品数降序的歌手列表（含作品数 / 平均热度 / 专辑数）
+     */
+    public List<ArtistPoint> searchArtists(String keyword, int limit) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        String q = keyword.trim();
+        if (q.length() > 64) {
+            throw BizException.badRequest("搜索关键词过长（最多 64 个字符）");
+        }
+        int size = limit <= 0 ? 8 : Math.min(limit, 30);
+        return songMapper.searchArtists(q, size);
+    }
+
     public List<SongBrief> search(String keyword, int limit) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return Collections.emptyList();
