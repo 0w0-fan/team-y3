@@ -1,7 +1,7 @@
 package com.fan.spotify.dto;
 
 /**
- * 分箱计数：作品数分箱 -> 歌手数。
+ * 分箱计数：作品数分箱 -> 歌手数 / 歌曲数 / 平均热度。
  */
 public class BinCount {
 
@@ -9,6 +9,10 @@ public class BinCount {
     public String bin;
     /** 该箱内歌手数 */
     public int artists;
+    /** 该箱内去重歌曲数（歌手作品数之和） */
+    public int songs;
+    /** 该箱内全部歌曲的平均热度 */
+    public double avgPop;
 
     public BinCount() {
     }

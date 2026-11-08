@@ -11,6 +11,10 @@ public class ArtistSpan {
     public int maxYear;
     /** maxYear - minYear */
     public int span;
+    /** 平均热度 */
+    public double avgPop;
+    /** 专辑数 */
+    public int albumCount;
 
     public ArtistSpan() {
     }

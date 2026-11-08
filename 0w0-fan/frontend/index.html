@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=1920, initial-scale=1">
     <title>Spotify 歌手与专辑「产量 - 热度」效率分析大屏</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230B1120'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%2322D3EE' stroke-width='2.5'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/dashboard.css?v=6">
+    <link rel="stylesheet" href="css/dashboard.css?v=21">
 </head>
 <body>
 
@@ -61,7 +61,7 @@
                 </div>
             </section>
 
-            <!-- 可配置图表：默认放在中间最大位，可换维度 / 度量 / 图形 -->
+            <!-- 可配置图表：默认放在中间最大位，可换维度 / 度量 / 图表 -->
             <section class="panel panel-main" id="card-custom">
                 <div class="panel-head">
                     <h2 id="custom-title">作品数 × 平均热度 四象限</h2>
@@ -73,7 +73,7 @@
                     <select id="cfg-dim" class="cfg-select"></select>
                     <span class="cfg-label">度量</span>
                     <select id="cfg-measure" class="cfg-select"></select>
-                    <span class="cfg-label">图形</span>
+                    <span class="cfg-label">图表</span>
                     <select id="cfg-type" class="cfg-select"></select>
                 </div>
                 <div class="chart" id="chart-custom"></div>
@@ -179,57 +179,17 @@
             </div>
 
             <div class="modal-body">
-                <div class="cfg-col">
-                    <div class="cfg-group">
-                        <div class="cfg-group-title">显示面板</div>
-                        <div class="cfg-checks" id="cfg-panels"></div>
-                    </div>
-
-                    <div class="cfg-group">
-                        <div class="cfg-group-title">布局拖动</div>
-                        <label class="cfg-check">
-                            <input type="checkbox" id="cfg-allow-drag">
-                            <span>允许拖动布局</span>
-                        </label>
-                        <label class="cfg-row">
-                            <span>拖动方式</span>
-                            <select class="cfg-select" id="cfg-drag-mode">
-                                <option value="swap">交换格子（拖到哪个图，两个图互换位置）</option>
-                                <option value="snap">只吸附回最近的格子（不交换）</option>
-                            </select>
-                        </label>
-                    </div>
-
-                    <div class="cfg-group">
-                        <div class="cfg-group-title">毛玻璃与透明度</div>
-                        <label class="cfg-row">
-                            <span>毛玻璃 <b id="cfg-blur-val">0</b> px</span>
-                            <input type="range" id="cfg-blur" min="0" max="24" step="1" value="0">
-                        </label>
-                        <label class="cfg-row">
-                            <span>面板不透明 <b id="cfg-alpha-val">92</b> %</span>
-                            <input type="range" id="cfg-alpha" min="20" max="100" step="1" value="92">
-                        </label>
-                        <p class="cfg-tip">毛玻璃要有效果，面板得是半透明的：把「不透明」调到 70% 以下最明显。</p>
-                    </div>
+                <div class="cfg-group">
+                    <div class="cfg-group-title">显示面板</div>
+                    <div class="cfg-checks" id="cfg-panels"></div>
                 </div>
 
-                <div class="cfg-col">
-                    <div class="cfg-group">
-                        <div class="cfg-group-title">背景渐变</div>
-                        <label class="cfg-row"><span>颜色 A</span><input type="color" id="cfg-bg-c1" value="#070C16"></label>
-                        <label class="cfg-row"><span>颜色 B</span><input type="color" id="cfg-bg-c2" value="#0B1120"></label>
-                        <label class="cfg-row"><span>强度 <b id="cfg-bg-mix-val">0</b> %</span><input type="range" id="cfg-bg-mix" min="0" max="100" step="1" value="0"></label>
-                        <label class="cfg-row"><span>方向 <b id="cfg-bg-deg-val">135</b>°</span><input type="range" id="cfg-bg-deg" min="0" max="360" step="5" value="135"></label>
-                    </div>
-
-                    <div class="cfg-group">
-                        <div class="cfg-group-title">面板渐变</div>
-                        <label class="cfg-row"><span>颜色 A</span><input type="color" id="cfg-pn-c1" value="#22D3EE"></label>
-                        <label class="cfg-row"><span>颜色 B</span><input type="color" id="cfg-pn-c2" value="#A78BFA"></label>
-                        <label class="cfg-row"><span>强度 <b id="cfg-pn-mix-val">0</b> %</span><input type="range" id="cfg-pn-mix" min="0" max="80" step="1" value="0"></label>
-                        <label class="cfg-row"><span>方向 <b id="cfg-pn-deg-val">135</b>°</span><input type="range" id="cfg-pn-deg" min="0" max="360" step="5" value="135"></label>
-                    </div>
+                <div class="cfg-group">
+                    <div class="cfg-group-title">布局拖动</div>
+                    <label class="cfg-check">
+                        <input type="checkbox" id="cfg-allow-drag">
+                        <span>允许拖动布局（拖动图表面板即可互换位置）</span>
+                    </label>
                 </div>
             </div>
 
@@ -245,7 +205,7 @@
 </div>
 
 <script src="js/echarts.min.js"></script>
-<script src="js/dashboard.js?v=6"></script>
-<script src="js/layout.js?v=6"></script>
+<script src="js/dashboard.js?v=24"></script>
+<script src="js/layout.js?v=21"></script>
 </body>
 </html>

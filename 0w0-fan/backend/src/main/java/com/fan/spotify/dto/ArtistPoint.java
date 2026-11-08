@@ -13,6 +13,8 @@ public class ArtistPoint {
     public double avgPop;
     /** 该歌手的去重专辑数（v2 主图用它映射点大小） */
     public int albumCount;
+    /** 该歌手的平均时长（分钟），供散点维度切换度量用 */
+    public double avgDur;
 
     public ArtistPoint() {
     }

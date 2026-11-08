@@ -1,7 +1,7 @@
 package com.fan.spotify.dto;
 
 /**
- * 专辑曲目数分箱 -> 专辑数 / 歌曲平均热度。
+ * 专辑曲目数分箱 -> 专辑数 / 歌曲数 / 歌曲平均热度 / 平均时长。
  */
 public class AlbumBin {
 
@@ -9,8 +9,12 @@ public class AlbumBin {
     public String bin;
     /** 该箱内专辑数 */
     public int albums;
+    /** 该箱内去重歌曲数 */
+    public int songs;
     /** 该箱内全部歌曲的平均热度 */
     public double avgPop;
+    /** 该箱内全部歌曲的平均时长（分钟） */
+    public double avgDur;
 
     public AlbumBin() {
     }
