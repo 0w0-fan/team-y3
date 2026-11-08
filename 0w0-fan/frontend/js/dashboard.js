@@ -196,7 +196,7 @@
      *   横轴：发行年份，类目轴，1957–2019 共 62 项
      *   左纵轴：歌曲数（首）—— 柱状系列，青色渐变，数据量级 1 ~ 7,406
      *   右纵轴：平均热度 —— 折线系列，金色发光 + 面积渐变，固定 0~100
-     *   交互：dataZoom 只开 24 年窗口，每 1.5 秒右移一格循环播放，形成「巡航」动效
+     *   交互：静态展示，不做自动动画（62 年一次画全，方便对着看）
      *   数据：/api/year/trend（2020 年数据被截断，默认不取）
      */
     function renderTrend(d) {
@@ -204,9 +204,6 @@
         var years = d.points.map(function (p) { return p.year; });
         var songs = d.points.map(function (p) { return p.songs; });
         var pops = d.points.map(function (p) { return p.avgPop; });
-
-        var WIN = 24;
-        var start = 0;
 
         chart.setOption({
             grid: { left: 54, right: 48, top: 30, bottom: 26 },
@@ -258,7 +255,6 @@
                     axisLabel: AXIS_TEXT
                 }
             ],
-            dataZoom: [{ type: 'inside', xAxisIndex: 0, start: 0, end: (WIN / 62) * 100, zoomLock: true }],
             series: [
                 {
                     name: '歌曲数',
@@ -283,34 +279,7 @@
             ]
         });
 
-        // 窗口自动巡航：用「连续平移」而不是一跳一跳，走到底再折返；
-        // 鼠标移到图上会暂停（方便看细节），标签页隐藏时也停（document.hidden）。
-        var winPct = (WIN / years.length) * 100;
-        var pos = 0;
-        var dir = 1;
-        var paused = false;
-        var SPEED = 0.02;      // 每帧平移的百分比，约 1.2%/秒，全程往返约 100 秒
-
-        var box = document.getElementById('chart-trend');
-        box.addEventListener('mouseenter', function () { paused = true; });
-        box.addEventListener('mouseleave', function () { paused = false; });
-
-        (function cruise() {
-            requestAnimationFrame(cruise);
-            if (paused || document.hidden) {
-                return;
-            }
-            pos += SPEED * dir;
-            if (pos >= 100 - winPct) {
-                pos = 100 - winPct;
-                dir = -1;
-            } else if (pos <= 0) {
-                pos = 0;
-                dir = 1;
-            }
-            chart.setOption({ dataZoom: [{ start: pos, end: pos + winPct }] });
-        })();
-
+        // 趋势图不做任何自动动画：62 年全量静态展示（之前那种窗口巡航看着像抽搐，已删除）
         document.getElementById('trend-sub').innerHTML =
             d.years + ' 年 · 峰值 <b>' + d.peakYear + '</b>（' + num(d.peakSongs) + ' 首）';
     }
@@ -1180,11 +1149,11 @@
             return;
         }
         if (MODE === 'artist') {
-            getJSON('/api/artist/search?q=' + encodeURIComponent(keyword) + '&limit=6')
+            getJSON('/api/artist/search?q=' + encodeURIComponent(keyword) + '&limit=30')
                 .then(renderArtistResults)
                 .catch(function (e) { toast(e.message, true); });
         } else {
-            getJSON('/api/song/search?q=' + encodeURIComponent(keyword) + '&limit=6')
+            getJSON('/api/song/search?q=' + encodeURIComponent(keyword) + '&limit=30')
                 .then(renderSongResults)
                 .catch(function (e) { toast(e.message, true); });
         }

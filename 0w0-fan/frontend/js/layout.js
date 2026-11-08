@@ -43,6 +43,12 @@
         { id: 's-search', x: 1402, y: 590, w: 502, h: 474 }
     ];
 
+    /**
+     * 锁定的面板：这 5 张（左列 3 张 + 中列下 2 张）是「绑定」的——
+     * 拖它们只会吸附回自己的格子，别的面板拖到它们的格子上也不会发生交换。
+     */
+    var LOCKED = ['card-trend', 'card-dist', 'card-top', 'card-album', 'card-scatter'];
+
     /** 面板 → 格子的默认归属 */
     var DEFAULT_ASSIGN = {
         'card-trend': 's-trend',
@@ -253,6 +259,20 @@
         return best || cur;
     }
 
+    /** 某个格子现在被谁占着 */
+    function occupantOf(slotId) {
+        for (var pid in assign) {
+            if (Object.prototype.hasOwnProperty.call(assign, pid) && assign[pid] === slotId) {
+                return pid;
+            }
+        }
+        return null;
+    }
+
+    function isLocked(panelId) {
+        return LOCKED.indexOf(panelId) >= 0;
+    }
+
     function startDrag(el, ev) {
         if (!theme.allowDrag) {
             return;                       // 默认关闭：直接不响应，避免演示时误拖
@@ -279,7 +299,10 @@
             el.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0)';
             if (moved) {
                 target = nearestSlot(el);
-                if (target && target.id !== panelSlotId(el.id)) {
+                // 目标格子被锁定面板占着 → 不提示、不交换
+                var occ = target ? occupantOf(target.id) : null;
+                var blocked = (target && occ && isLocked(occ)) || isLocked(el.id);
+                if (target && target.id !== panelSlotId(el.id) && !blocked) {
                     showHint(target);
                 } else {
                     hideHint();
@@ -300,20 +323,22 @@
             }
 
             var mode = theme.dragMode;
-            if (mode === 'swap' && target && target.id !== panelSlotId(el.id)) {
-                // 找到占着目标格子的那个面板，两者互换（没有占用者就直接搬过去）
-                var occupant = null;
-                for (var pid in assign) {
-                    if (Object.prototype.hasOwnProperty.call(assign, pid) && pid !== el.id &&
-                        assign[pid] === target.id) {
-                        occupant = pid;
-                        break;
-                    }
-                }
-                var mine = panelSlotId(el.id);
+            var occupant = target ? occupantOf(target.id) : null;
+
+            // 锁定面板：永远吸附回自己的格子，且不跟任何人交换
+            if (isLocked(el.id)) {
+                applyLayout();
+                toast('这 5 张图是绑定在一起的，不参与交换');
+                return;
+            }
+
+            // 目标格子被锁定面板占着：也不交换，直接回原位
+            if (mode === 'swap' && target && target.id !== panelSlotId(el.id) &&
+                !(occupant && isLocked(occupant))) {
+                var mineId = panelSlotId(el.id);
                 assign[el.id] = target.id;
-                if (occupant) {
-                    assign[occupant] = mine;
+                if (occupant && occupant !== el.id) {
+                    assign[occupant] = mineId;
                 }
                 write(STORE_LAYOUT, assign);
                 applyLayout();
@@ -321,7 +346,7 @@
                 return;
             }
 
-            applyLayout();   // snap 模式：直接吸回最近的格子（其实就是自己原来的位置）
+            applyLayout();   // 其余情况：吸回最近的格子（也就是原位）
         }
 
         document.addEventListener('pointermove', onMove);
@@ -333,10 +358,17 @@
      * 5. 初始化：不再有缩放手柄，只挂标题栏拖动
      * ------------------------------------------------------------------ */
 
+    function applyDragCursor() {
+        document.body.classList.toggle('drag-enabled', !!theme.allowDrag);
+    }
+
     function initPanels() {
         var list = panels();
         for (var i = 0; i < list.length; i++) {
             (function (el) {
+                if (isLocked(el.id)) {
+                    el.classList.add('locked');
+                }
                 var head = el.querySelector('.panel-head');
                 if (head) {
                     head.addEventListener('pointerdown', function (ev) {
@@ -415,6 +447,7 @@
         // 拖动开关与方式
         document.getElementById('cfg-allow-drag').addEventListener('change', function (e) {
             theme.allowDrag = e.target.checked;
+            applyDragCursor();
         });
         document.getElementById('cfg-drag-mode').addEventListener('change', function (e) {
             theme.dragMode = e.target.value;
@@ -553,6 +586,7 @@
         applyTheme();
         syncInputs();
 
+        applyDragCursor();
         document.getElementById('btn-reset-layout').addEventListener('click', resetAll);
         window.addEventListener('resize', function () {
             setTimeout(resizeCharts, 60);
