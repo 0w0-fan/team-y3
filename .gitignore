@@ -35,3 +35,7 @@ shared/sql/*.sql
 # ---- 日志 ----
 *.log
 logs/
+
+# ---- 导出数据 ----
+# 0w0-fan/data/03_export.py 生成，体积大（去重数据约 6 MB），只保留脚本，导出物不进 git
+0w0-fan/data/export/

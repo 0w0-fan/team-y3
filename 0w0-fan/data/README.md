@@ -11,6 +11,8 @@
 |---|---|
 | `02_build_view.py` | **一键执行脚本**：执行 SQL 建视图，并自动跑一遍校验后打印结果 |
 | `02_member_view.sql` | 建歌曲级去重视图 `artist_track_view`，并派生 `duration_min` / `release_year` / `popularity_level` 三个列 |
+| `03_export.py` | 数据落盘：导出去重数据 CSV（28,356 行）+ 库结构 SQL，用于提交与归档 |
+| `export/` | 上面脚本的产物（约 5.1 MB，已加入 .gitignore，不进 git） |
 
 两张交互表（`artist_favorite`、`song_tag`）的建表脚本按约定放在 `shared/sql/02_member_tables.sql`。
 
@@ -61,7 +63,26 @@ SELECT MIN(duration_min), MAX(duration_min) FROM artist_track_view; -- 0.07 ~ 8.
 SELECT popularity_level, COUNT(*) FROM artist_track_view GROUP BY popularity_level;
 ```
 
-## 六、注意
+## 六、导出数据（03_export.py）
+
+```bash
+cd D:\Project\IDEA	eam-y3
+python 0w0-fan/data/03_export.py
+```
+
+输出到 `0w0-fan/data/export/`：
+
+| 文件 | 内容 | 体积 |
+|---|---|---|
+| `artist_track_view.csv` | 去重后的歌曲明细，28,356 行 × 20 列，UTF-8 BOM（Excel 双击不乱码） | 约 5.1 MB |
+| `artist_favorite.csv` | 关注歌手表当前内容 | 随交互数据变化 |
+| `song_tag.csv` | 歌曲标签表当前内容 | 随交互数据变化 |
+| `spotify_dashboard_schema.sql` | 库结构：3 张表 + 1 个视图的 DDL（不含数据） | 约 6 KB |
+
+为什么单独写脚本而不是用 Navicat 导出：可复现（随时重跑、结果一致）、
+可版本化（脚本进 git，导出的数据文件体积大不进 git）。
+
+## 七、注意
 
 - 视图列不写 `COLLATE`，直接继承主表的 `utf8mb4_bin`，保证 `Billing` 与 `BILLING` 不被合并成同一个歌手。
 - 视图是**只读**的，页面上的增删改都写 `artist_favorite` / `song_tag` 两张独立表。
