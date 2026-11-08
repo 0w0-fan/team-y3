@@ -542,8 +542,7 @@
     /** 维度字典：每个维度自带「能用哪些度量」「能画哪些图形」——这就是兼容性矩阵 */
     var DIMS = {
         scatter_artist: { label: '歌手分布（作品数 × 热度）', measures: ['avgPop'], types: ['scatter'] },
-        scatter_album: { label: '歌手分布（专辑数 × 热度）', measures: ['avgPop'], types: ['scatter'] },
-        year: { label: '发行年份', measures: ['songs', 'avgPop'], types: ['area', 'bar'] },
+        year: { label: '发行年份', measures: ['songs', 'avgPop'], types: ['line', 'bar'] },
         artist_bins: { label: '歌手作品数分箱', measures: ['artistCount'], types: ['bar', 'barH', 'pie', 'rose'] },
         album_bins: { label: '专辑曲目数分箱', measures: ['albums', 'avgPop'], types: ['bar', 'barH', 'pie', 'rose'] },
         pop_level: { label: '热度分档', measures: ['songs', 'avgPop', 'avgDur'], types: ['bar', 'barH', 'pie', 'rose'] },
@@ -557,7 +556,7 @@
     };
 
     var TYPE_LABEL = {
-        scatter: '气泡散点', area: '面积图', bar: '柱状图',
+        scatter: '气泡散点', line: '折线图', bar: '柱状图',
         barH: '横向条形', pie: '环形饼图', rose: '玫瑰图'
     };
 
@@ -594,7 +593,7 @@
     }
 
     function datasetOf(dim) {
-        if (dim === 'scatter_artist' || dim === 'scatter_album') {
+        if (dim === 'scatter_artist') {
             return { numeric: true, points: (DATA.quadrant || {}).points || [] };
         }
         if (dim === 'year') {
@@ -730,19 +729,17 @@
         var option;
 
         if (type === 'scatter') {
-            var byAlbum = (dim === 'scatter_album');
-            option = buildScatter(data, byAlbum);
-            title.textContent = byAlbum ? '专辑数 × 平均热度 四象限' : '作品数 × 平均热度 四象限';
-            sub.innerHTML = '作品数 ≥ 3 · <b>' + num((DATA.quadrant || {}).count || 0) + '</b> 位歌手 · 气泡大小 = ' +
-                (byAlbum ? '作品数' : '专辑数');
+            option = buildScatter(data);
+            title.textContent = '作品数 × 平均热度 四象限';
+            sub.innerHTML = '作品数 ≥ 3 · <b>' + num((DATA.quadrant || {}).count || 0) + '</b> 位歌手 · 气泡大小 = 专辑数';
         } else if (type === 'pie' || type === 'rose') {
             option = buildPie(data, measure, type === 'rose');
             title.textContent = DIMS[dim].label + ' · ' + (type === 'rose' ? '玫瑰图' : '占比');
             sub.textContent = (type === 'rose' ? '玫瑰图' : '环形饼图') + ' · 度量 = ' + MEASURE_LABEL[measure];
-        } else if (type === 'area') {
+        } else if (type === 'line') {
             option = buildLine(data, measure);
             title.textContent = DIMS[dim].label + ' · 趋势';
-            sub.textContent = '面积图（渐变填充） · 度量 = ' + MEASURE_LABEL[measure];
+            sub.textContent = '折线图 · 度量 = ' + MEASURE_LABEL[measure];
         } else {
             option = buildBar(data, measure, type === 'barH');
             title.textContent = DIMS[dim].label + ' · ' + MEASURE_LABEL[measure];
@@ -756,16 +753,16 @@
     /** 各类图形的装配：都沿用页面统一的配色与提示框风格 */
 
     /**
-     * 四象限气泡：x 可以是作品数或专辑数（byAlbum 决定），y 是平均热度，
-     * 气泡大小映射另一维。分割线的 x 按当前这一维重新算中位数。
+     * 四象限气泡：x = 作品数，y = 平均热度，气泡大小映射专辑数。
+     * 分割线的 x 按这一维重新算中位数。
      */
-    function buildScatter(data, byAlbum) {
+    function buildScatter(data) {
         var points = data.points || [];
         var raw = points.map(function (p) {
             return {
-                x: byAlbum ? (p.albumCount || 1) : p.works,
+                x: p.works,
                 y: p.avgPop,
-                size: byAlbum ? p.works : (p.albumCount || 1),
+                size: p.albumCount || 1,
                 name: p.name
             };
         });
@@ -847,15 +844,15 @@
             tooltip: Object.assign({
                 trigger: 'item',
                 formatter: function (p) {
-                    return '<b>' + esc(p.data[2]) + '</b><br/>' + (byAlbum ? '专辑数' : '作品数') +
-                        ' <b style="color:' + C.accent + '">' + p.data[0] + '</b><br/>平均热度 <b style="color:' +
-                        C.warm + '">' + p.data[1].toFixed(2) + '</b><br/>' + (byAlbum ? '作品数' : '专辑数') +
-                        ' <b style="color:' + C.purple + '">' + p.data[3] + '</b>';
+                    return '<b>' + esc(p.data[2]) + '</b><br/>作品数 <b style="color:' + C.accent + '">' +
+                        p.data[0] + '</b> 首<br/>平均热度 <b style="color:' + C.warm + '">' +
+                        p.data[1].toFixed(2) + '</b><br/>专辑数 <b style="color:' + C.purple + '">' +
+                        p.data[3] + '</b> 张';
                 }
             }, tip()),
             xAxis: {
                 type: 'log', min: 3, max: 200,
-                name: (byAlbum ? '专辑数' : '作品数') + '（对数轴）', nameLocation: 'middle', nameGap: 26,
+                name: '作品数（对数轴）', nameLocation: 'middle', nameGap: 26,
                 nameTextStyle: { color: C.textSub, fontSize: 11 },
                 axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false },
                 axisLabel: AXIS_TEXT, splitLine: { show: false }
@@ -891,7 +888,7 @@
         };
     }
 
-    function buildLine(data, measure, area) {
+    function buildLine(data, measure) {
         var vals = data.series[measure] || [];
         return {
             grid: { left: 52, right: 22, top: 24, bottom: 30 },
@@ -911,9 +908,6 @@
             series: [{
                 type: 'line', smooth: true, symbol: 'none',
                 lineStyle: { width: 2.5, color: C.accent, shadowColor: 'rgba(34,211,238,0.6)', shadowBlur: 12 },
-                areaStyle: area ? {
-                    color: grad(0, 0, 0, 1, 'rgba(34,211,238,0.35)', 'rgba(34,211,238,0.02)')
-                } : undefined,
                 data: vals
             }]
         };
@@ -1151,7 +1145,7 @@
         song: {
             title: '收藏歌曲',
             searchPlaceholder: '歌名，如 11 PM（只匹配歌名）',
-            notePlaceholder: '标签（可空，默认「收藏」）',
+            notePlaceholder: '标签（可空）',
             action: '收藏',
             emptyHint: '输入歌名开始搜索',
             savedEmpty: '还没有收藏任何歌曲'
@@ -1278,7 +1272,7 @@
         box.innerHTML = saved.map(function (r) {
             var isArtist = (MODE === 'artist');
             var name = isArtist ? r.artistName : (r.songName || r.trackId);
-            var note = isArtist ? (r.note || '—') : r.tagName;
+            var note = isArtist ? (r.note || '') : (r.tagName || '');
             // 库里没有的条目打「库外」标：说明它只是名字，图表里找不到对应数据
             var flag = r.inDataset
                 ? '<span class="tag-in">库内</span>'

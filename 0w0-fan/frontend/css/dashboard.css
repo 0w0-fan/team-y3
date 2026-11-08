@@ -992,8 +992,8 @@ body.drag-enabled .kpi-strip {
 .modal-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 26px 34px;           /* 两栏之间留足空隙，别挤在一起 */
-    padding: 20px 24px;
+    gap: 30px 46px;           /* 两栏之间留足空隙，别挤在一起 */
+    padding: 26px 30px;
     max-height: 660px;
     overflow-y: auto;
 }
@@ -1010,9 +1010,9 @@ body.drag-enabled .kpi-strip {
     display: flex;
     align-items: flex-start;
     gap: 6px;
-    margin-bottom: 8px;
-    font-size: 11.5px;
-    line-height: 1.5;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.6;
     color: var(--text-main);
     cursor: pointer;
 }

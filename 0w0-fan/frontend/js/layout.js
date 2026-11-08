@@ -44,10 +44,11 @@
     ];
 
     /**
-     * 锁定的面板：这 5 张（左列 3 张 + 中列下 2 张）是「绑定」的——
-     * 拖它们只会吸附回自己的格子，别的面板拖到它们的格子上也不会发生交换。
+     * 唯一不参与交换的是 KPI 指标条（那 5 个小翻牌是一整块）：
+     * 它可以拖动，但松手会滑回原位；别的图拖到它的格子上也不发生交换。
+     * 其余 8 个面板（7 张图 + 搜索面板）彼此可以任意交换格子。
      */
-    var LOCKED = ['card-trend', 'card-dist', 'card-top', 'card-album', 'card-scatter'];
+    var LOCKED = ['kpi-strip'];
 
     /** 面板 → 格子的默认归属 */
     var DEFAULT_ASSIGN = {
@@ -141,7 +142,11 @@
      * 顺便做「小格子自动精简」：格子变小的时候把图例、部分标签收起来，
      * 免得文字挤成一团 —— 这是交换格子方案里唯一需要额外照顾的地方。
      */
-    function resizeCharts() {
+    /**
+     * @param {boolean} quick true = 只同步画布尺寸（拖动过渡期间每帧调用，不做重排）；
+     *                        false = 额外按新格子大小调整图例与边距（松手收尾时调用一次）
+     */
+    function resizeCharts(quick) {
         if (!window.echarts) {
             return;
         }
@@ -152,8 +157,12 @@
             if (!inst) {
                 continue;
             }
-            inst.resize();
+            inst.resize();          // 让 canvas 的像素尺寸立刻跟上容器
+            if (quick) {
+                continue;
+            }
 
+            // 小格子自动精简：换进窄格时把图例收起来，免得文字挤成一团
             var w = el.clientWidth;
             var h = el.clientHeight;
             var compact = (w < 600 || h < 300);
@@ -274,16 +283,31 @@
         return LOCKED.indexOf(panelId) >= 0;
     }
 
-    /** 松手后滑到目标位置：加 animating 类走 CSS 过渡，过渡结束再摘掉 */
+    /**
+     * 松手后滑到目标位置：加 animating 类走 0.34s CSS 过渡。
+     * 关键：过渡期间容器的宽高是逐帧变化的，只在开头 resize 一次会让
+     * 图表画布停留在旧尺寸（就是「交换过去那张图显示不全」的原因）。
+     * 所以过渡期间每帧同步一次画布，结束后再做一次完整重排。
+     */
     function glideTo(el, after) {
         el.classList.add('animating');
         el.style.transform = '';
         if (after) {
             after();
         }
+
+        var t0 = performance.now();
+        (function tick(now) {
+            resizeCharts(true);
+            if (now - t0 < 420) {
+                requestAnimationFrame(tick);
+            }
+        })(t0);
+
         setTimeout(function () {
             el.classList.remove('animating');
-        }, 360);
+            resizeCharts(false);
+        }, 380);
     }
 
     function startDrag(el, ev) {
@@ -497,7 +521,7 @@
             write(STORE_THEME, theme);
             write(STORE_LAYOUT, assign);
             close();
-            toast('已保存到本机浏览器');
+            toast('已保存');
         });
 
         document.getElementById('btn-reset-theme').addEventListener('click', function () {
