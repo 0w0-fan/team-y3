@@ -549,46 +549,225 @@
     }
 
     /* ==================================================================
-     * 7. 图 5（主视觉）：作品数 × 平均热度 四象限气泡
-     *    点大小 = 该歌手专辑数（v2 新维度）
+     * 7. 可配置图表（默认落在中间最大的位置）
+     *    三个选择器：维度 × 度量 × 图形；不支持的组合直接置灰 + 禁止光标
+     *    默认组合 = 原来的主视觉（歌手作品数 × 平均热度 四象限气泡）
      * ================================================================== */
-    /**
-     * 图 5（主视觉）：作品数 × 平均热度 四象限气泡图
-     *   横轴：作品数，**对数轴** —— 从 3 首到 130 首跨两个数量级，
-     *         线性轴会把 2,400 多个点全挤在左侧
-     *   纵轴：平均热度 0~100
-     *   分割线：x = 作品中位数 5，y = 全局均值 42.48（markLine 虚线）
-     *   气泡大小：该歌手的专辑数（v2 新维度），sqrt 开方避免大值过分夸张
-     *   四个系列：明星区/精品区/走量区/长尾区，各自一种颜色 + 图例可点选过滤
-     *   markArea：给「多且热」和「少而热」两个象限铺一层淡底色
-     *   数据：/api/artist/quadrant（2,486 位歌手）
-     */
-    function renderQuadrant(d) {
-        var chart = echarts.init(document.getElementById('chart-quadrant'));
-        var medianX = d.medianWorks;
-        var splitY = d.globalAvgPop;
 
-        var groups = { star: [], craft: [], volume: [], tail: [] };
-        var maxAlbum = 0;
+    /** 维度字典：每个维度自带「能用哪些度量」「能画哪些图形」——这就是兼容性矩阵 */
+    var DIMS = {
+        scatter_artist: { label: '歌手分布（作品数 × 热度）', measures: ['avgPop'], types: ['scatter'] },
+        year: { label: '发行年份', measures: ['songs', 'avgPop'], types: ['line', 'area', 'bar'] },
+        artist_bins: { label: '歌手作品数分箱', measures: ['artistCount'], types: ['bar', 'barH', 'pie'] },
+        album_bins: { label: '专辑曲目数分箱', measures: ['albums', 'avgPop'], types: ['bar', 'barH', 'pie'] },
+        pop_level: { label: '热度分档', measures: ['songs', 'avgPop'], types: ['bar', 'barH', 'pie'] },
+        dur_bins: { label: '歌曲时长分箱', measures: ['songs', 'avgPop'], types: ['bar', 'barH', 'pie'] },
+        artist_top: { label: '歌手 TOP20', measures: ['works', 'avgPop'], types: ['barH', 'bar'] }
+    };
 
-        d.points.forEach(function (p) {
-            if (p.albumCount > maxAlbum) {
-                maxAlbum = p.albumCount;
+    var MEASURE_LABEL = {
+        avgPop: '平均热度', songs: '歌曲数', artistCount: '歌手数', albums: '专辑数', works: '作品数'
+    };
+
+    var TYPE_LABEL = {
+        scatter: '气泡散点', line: '折线图', area: '面积图', bar: '柱状图', barH: '横向条形', pie: '饼图'
+    };
+
+    var CUSTOM_STORE = 'spotify-dash-chart-v1';
+    var DATA = {};                 // 后端取回来的原始数据都放这里，供可配置图表复用
+    var customChart = null;
+    var CFG = { dim: 'scatter_artist', measure: 'avgPop', type: 'scatter' };
+
+    try {
+        var savedCfg = JSON.parse(localStorage.getItem(CUSTOM_STORE) || 'null');
+        if (savedCfg && DIMS[savedCfg.dim]) {
+            CFG = savedCfg;
+        }
+    } catch (e) { /* 读不出来就用默认 */ }
+
+    /* ---------- 7.1 各维度的数据装配 ---------- */
+
+    /** 把 28,356 个散点按规则分箱（热度分档 / 时长分箱都用它） */
+    function binPoints(points, edges, labels, picker) {
+        var songs = new Array(labels.length).fill(0);
+        var sum = new Array(labels.length).fill(0);
+        points.forEach(function (p) {
+            var v = picker(p);
+            for (var i = 0; i < edges.length; i++) {
+                if (v < edges[i]) {
+                    songs[i] += 1;
+                    sum[i] += p.y;
+                    return;
+                }
             }
+        });
+        var avg = songs.map(function (n, i) { return n ? Number((sum[i] / n).toFixed(2)) : 0; });
+        return { songs: songs, avgPop: avg };
+    }
+
+    function datasetOf(dim) {
+        if (dim === 'scatter_artist') {
+            return { numeric: true, points: (DATA.quadrant || {}).points || [] };
+        }
+        if (dim === 'year') {
+            var pts = (DATA.yearTrend || {}).points || [];
+            return {
+                categories: pts.map(function (p) { return p.year; }),
+                series: {
+                    songs: pts.map(function (p) { return p.songs; }),
+                    avgPop: pts.map(function (p) { return p.avgPop; })
+                }
+            };
+        }
+        if (dim === 'artist_bins') {
+            var d = DATA.distribution || [];
+            return {
+                categories: d.map(function (x) { return x.bin + ' 首'; }),
+                series: { artistCount: d.map(function (x) { return x.artists; }) }
+            };
+        }
+        if (dim === 'album_bins') {
+            var a = DATA.albumBins || [];
+            return {
+                categories: a.map(function (x) { return x.bin + ' 首'; }),
+                series: {
+                    albums: a.map(function (x) { return x.albums; }),
+                    avgPop: a.map(function (x) { return x.avgPop; })
+                }
+            };
+        }
+        if (dim === 'pop_level') {
+            var sc = (DATA.scatter || {}).points || [];
+            var b = binPoints(sc, [0.5, 30, 60, 80, 101], ['0', '1-29', '30-59', '60-79', '80-100'],
+                function (p) { return p.y; });
+            return { categories: ['0', '1-29', '30-59', '60-79', '80-100'], series: b };
+        }
+        if (dim === 'dur_bins') {
+            var sc2 = (DATA.scatter || {}).points || [];
+            var b2 = binPoints(sc2, [2, 3, 4, 5, 99], ['<2', '2-3', '3-4', '4-5', '5+'],
+                function (p) { return p.x; });
+            return { categories: ['<2 分', '2-3 分', '3-4 分', '4-5 分', '5 分以上'], series: b2 };
+        }
+        if (dim === 'artist_top') {
+            var top = (DATA.topArtists || []).slice(0, 20);
+            return {
+                categories: top.map(function (x) { return x.name; }),
+                series: {
+                    works: top.map(function (x) { return x.works; }),
+                    avgPop: top.map(function (x) { return x.avgPop; })
+                }
+            };
+        }
+        return { categories: [], series: {} };
+    }
+
+    /* ---------- 7.2 选择器的置灰逻辑 ---------- */
+
+    function fillSelect(sel, options, current, enabledSet) {
+        var html = '';
+        options.forEach(function (o) {
+            var disabled = enabledSet && enabledSet.indexOf(o) < 0;
+            html += '<option value="' + o + '"' +
+                (o === current ? ' selected' : '') +
+                (disabled ? ' disabled' : '') + '>' + o + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.disabled = !options.length;
+    }
+
+    function syncSelectors() {
+        var dim = DIMS[CFG.dim];
+
+        // 维度：全部可选
+        var dims = Object.keys(DIMS);
+        fillSelect(document.getElementById('cfg-dim'), dims.map(function (d) { return d; }),
+            CFG.dim, dims);
+        // 维度下拉显示的是中文标签，所以单独覆盖一次文本
+        var dimEl = document.getElementById('cfg-dim');
+        for (var i = 0; i < dimEl.options.length; i++) {
+            dimEl.options[i].textContent = DIMS[dimEl.options[i].value].label;
+        }
+
+        // 度量 / 图形：只放当前维度支持的组合，其余置灰不可点
+        fillSelect(document.getElementById('cfg-measure'), dim.measures, CFG.measure, dim.measures);
+        var meaEl = document.getElementById('cfg-measure');
+        for (var j = 0; j < meaEl.options.length; j++) {
+            meaEl.options[j].textContent = MEASURE_LABEL[meaEl.options[j].value] || meaEl.options[j].value;
+        }
+
+        fillSelect(document.getElementById('cfg-type'), dim.types, CFG.type, dim.types);
+        var typeEl = document.getElementById('cfg-type');
+        for (var k = 0; k < typeEl.options.length; k++) {
+            typeEl.options[k].textContent = TYPE_LABEL[typeEl.options[k].value] || typeEl.options[k].value;
+        }
+    }
+
+    /** 切换维度后，把度量/图形收敛到合法的组合上 */
+    function normalizeCfg() {
+        var dim = DIMS[CFG.dim];
+        if (dim.measures.indexOf(CFG.measure) < 0) {
+            CFG.measure = dim.measures[0];
+        }
+        if (dim.types.indexOf(CFG.type) < 0) {
+            CFG.type = dim.types[0];
+        }
+    }
+
+    /* ---------- 7.3 渲染 ---------- */
+
+    function renderCustom() {
+        var box = document.getElementById('chart-custom');
+        if (!customChart) {
+            customChart = echarts.init(box);
+        }
+        var dim = CFG.dim;
+        var measure = CFG.measure;
+        var type = CFG.type;
+        var data = datasetOf(dim);
+        var title = document.getElementById('custom-title');
+        var sub = document.getElementById('custom-sub');
+
+        var option;
+
+        if (type === 'scatter') {
+            option = buildScatter(data, measure);
+            title.textContent = '作品数 × 平均热度 四象限';
+            sub.innerHTML = '作品数 ≥ 3 · <b>' + num((DATA.quadrant || {}).count || 0) +
+                '</b> 位歌手 · 气泡大小 = 专辑数';
+        } else if (type === 'pie') {
+            option = buildPie(data, measure);
+            title.textContent = DIMS[dim].label + ' · 占比';
+            sub.textContent = '饼图 · 度量 = ' + MEASURE_LABEL[measure];
+        } else if (type === 'line' || type === 'area') {
+            option = buildLine(data, measure, type === 'area');
+            title.textContent = DIMS[dim].label + ' · 趋势';
+            sub.textContent = (type === 'area' ? '面积图' : '折线图') + ' · 度量 = ' + MEASURE_LABEL[measure];
+        } else {
+            option = buildBar(data, measure, type === 'barH');
+            title.textContent = DIMS[dim].label + ' · ' + MEASURE_LABEL[measure];
+            sub.textContent = (type === 'barH' ? '横向条形' : '柱状图') +
+                ' · 共 ' + (data.categories || []).length + ' 项';
+        }
+
+        customChart.setOption(option, true);
+    }
+
+    /** 各类图形的装配：都沿用页面统一的配色与提示框风格 */
+
+    function buildScatter(data, measure) {
+        var points = data.points || [];
+        var medianX = (DATA.quadrant || {}).medianWorks || 5;
+        var splitY = (DATA.quadrant || {}).globalAvgPop || 42.48;
+        var groups = { star: [], craft: [], volume: [], tail: [] };
+        var maxAlbum = 1;
+
+        points.forEach(function (p) {
+            maxAlbum = Math.max(maxAlbum, p.albumCount || 1);
             var many = p.works >= medianX;
             var hot = p.avgPop >= splitY;
-            var key = many ? (hot ? 'star' : 'volume') : (hot ? 'craft' : 'tail');
-            groups[key].push([p.works, p.avgPop, p.name, p.albumCount]);
+            groups[many ? (hot ? 'star' : 'volume') : (hot ? 'craft' : 'tail')]
+                .push([p.works, p.avgPop, p.name, p.albumCount]);
         });
-
-        /**
-         * 气泡大小：按专辑数开方映射，避免「专辑多的歌手」把点撑得过份大。
-         * 上限压到 22px（原来 31px）：2,486 个点里大点越少，重绘越轻。
-         */
-        function size(val) {
-            var albums = val[3] || 1;
-            return 4 + Math.sqrt(albums / Math.max(maxAlbum, 1)) * 18;
-        }
 
         var defs = [
             { key: 'tail', name: '长尾区 · 少且冷', color: 'rgba(148,163,184,0.50)' },
@@ -601,75 +780,44 @@
             var s = {
                 name: def.name,
                 type: 'scatter',
-                symbolSize: size,
-                // 注意：这里刻意不加 shadowBlur —— 2,486 个点每点一次阴影会把绘制成本放大十几倍，
-                // 实测就是主视觉卡顿的元凶。发光效果只在鼠标悬停（emphasis）时给。
-                itemStyle: {
-                    color: def.color,
-                    opacity: def.key === 'tail' ? 0.5 : 0.8
+                symbolSize: function (val) {
+                    return 4 + Math.sqrt((val[3] || 1) / maxAlbum) * 18;
                 },
+                itemStyle: { color: def.color, opacity: def.key === 'tail' ? 0.5 : 0.8 },
                 emphasis: {
                     scale: 1.35,
-                    itemStyle: {
-                        opacity: 1,
-                        borderColor: '#fff',
-                        borderWidth: 1,
-                        shadowBlur: 12,
-                        shadowColor: 'rgba(34,211,238,0.9)'
-                    }
+                    itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1, shadowBlur: 12, shadowColor: 'rgba(34,211,238,0.9)' }
                 },
                 data: groups[def.key]
             };
             if (idx === 0) {
                 s.markLine = {
-                    silent: true,
-                    symbol: 'none',
+                    silent: true, symbol: 'none',
                     lineStyle: { color: C.accentDim, type: 'dashed', width: 1 },
-                    label: {
-                        color: C.textSub,
-                        fontSize: 10,
-                        backgroundColor: 'rgba(8,17,30,0.75)',
-                        padding: [2, 4]
-                    },
+                    label: { color: C.textSub, fontSize: 10, backgroundColor: 'rgba(8,17,30,0.75)', padding: [2, 4] },
                     data: [
                         { xAxis: medianX, label: { formatter: '作品中位 ' + medianX + ' 首', position: 'end' } },
                         { yAxis: splitY, label: { formatter: '热度均值 ' + splitY, position: 'insideEndTop' } }
                     ]
                 };
                 s.markArea = {
-                    silent: true,
-                    itemStyle: { opacity: 1 },
+                    silent: true, itemStyle: { opacity: 1 },
                     data: [
-                        [
-                            { xAxis: 3, yAxis: splitY, itemStyle: { color: 'rgba(167,139,250,0.05)' } },
-                            { xAxis: medianX, yAxis: 100 }
-                        ],
-                        [
-                            { xAxis: medianX, yAxis: splitY, itemStyle: { color: 'rgba(34,211,238,0.06)' } },
-                            { xAxis: 200, yAxis: 100 }
-                        ]
+                        [{ xAxis: 3, yAxis: splitY, itemStyle: { color: 'rgba(167,139,250,0.05)' } }, { xAxis: medianX, yAxis: 100 }],
+                        [{ xAxis: medianX, yAxis: splitY, itemStyle: { color: 'rgba(34,211,238,0.06)' } }, { xAxis: 200, yAxis: 100 }]
                     ]
                 };
             }
             return s;
         });
 
-        chart.setOption({
+        return {
             grid: { left: 52, right: 22, top: 34, bottom: 40 },
-            // 入场动画保留（有仪式感），但用 progressive 分帧绘制，避免 2,486 个点一次性铺开卡住主线程
             animationDuration: 900,
             animationEasing: 'cubicOut',
             progressive: 1200,
             progressiveThreshold: 800,
-            legend: {
-                right: 10,
-                top: 2,
-                itemWidth: 9,
-                itemHeight: 9,
-                itemGap: 14,
-                textStyle: { color: C.textSub, fontSize: 11 },
-                data: defs.map(function (x) { return x.name; })
-            },
+            legend: { right: 10, top: 2, itemWidth: 9, itemHeight: 9, itemGap: 14, textStyle: { color: C.textSub, fontSize: 11 } },
             tooltip: Object.assign({
                 trigger: 'item',
                 formatter: function (p) {
@@ -679,39 +827,151 @@
                 }
             }, tip()),
             xAxis: {
-                type: 'log',
-                min: 3,
-                max: 200,
-                name: '作品数（对数轴）',
-                nameLocation: 'middle',
-                nameGap: 26,
+                type: 'log', min: 3, max: 200,
+                name: '作品数（对数轴）', nameLocation: 'middle', nameGap: 26,
                 nameTextStyle: { color: C.textSub, fontSize: 11 },
-                axisLine: { lineStyle: { color: C.axis } },
-                axisTick: { show: false },
-                axisLabel: AXIS_TEXT,
-                splitLine: { show: false }
+                axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false },
+                axisLabel: AXIS_TEXT, splitLine: { show: false }
             },
             yAxis: {
-                type: 'value',
-                min: 0,
-                max: 100,
-                name: '平均热度',
+                type: 'value', min: 0, max: 100, name: '平均热度',
                 nameTextStyle: { color: C.textSub, fontSize: 11, padding: [0, 0, 0, -14] },
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: AXIS_TEXT,
-                splitLine: SPLIT
+                axisLine: { show: false }, axisTick: { show: false },
+                axisLabel: AXIS_TEXT, splitLine: SPLIT
             },
             series: series
-        });
-
-        document.getElementById('quadrant-sub').innerHTML =
-            '作品数 ≥ 3 · <b>' + num(d.count) + '</b> 位歌手 · 气泡大小 = 专辑数（最大 ' + maxAlbum + ' 张）';
+        };
     }
 
+    function buildPie(data, measure) {
+        var rows = (data.categories || []).map(function (c, i) {
+            return { name: c, value: (data.series[measure] || [])[i] || 0 };
+        });
+        return {
+            color: SERIES,
+            tooltip: Object.assign({ trigger: 'item', formatter: '{b}<br/>' + MEASURE_LABEL[measure] + '：{c}（{d}%）' }, tip()),
+            legend: { orient: 'vertical', right: 8, top: 'center', textStyle: { color: C.textSub, fontSize: 11 }, itemWidth: 9, itemHeight: 9 },
+            series: [{
+                type: 'pie',
+                radius: ['46%', '70%'],
+                center: ['40%', '54%'],
+                label: { color: C.textMain || '#DCE7F5', fontSize: 11, formatter: '{b}\n{d}%' },
+                labelLine: { lineStyle: { color: 'rgba(148,163,184,0.4)' } },
+                itemStyle: { borderColor: '#0B1120', borderWidth: 2 },
+                data: rows
+            }]
+        };
+    }
+
+    function buildLine(data, measure, area) {
+        var vals = data.series[measure] || [];
+        return {
+            grid: { left: 52, right: 22, top: 24, bottom: 30 },
+            tooltip: Object.assign({
+                trigger: 'axis',
+                formatter: function (p) {
+                    return p[0].name + '<br/>' + MEASURE_LABEL[measure] + '：<b style="color:' + C.accent + '">' + p[0].value + '</b>';
+                }
+            }, tip()),
+            xAxis: {
+                type: 'category', data: data.categories, boundaryGap: false,
+                axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false }, axisLabel: AXIS_TEXT
+            },
+            yAxis: {
+                type: 'value', splitLine: SPLIT, axisLine: { show: false }, axisTick: { show: false }, axisLabel: AXIS_TEXT
+            },
+            series: [{
+                type: 'line', smooth: true, symbol: 'none',
+                lineStyle: { width: 2.5, color: C.accent, shadowColor: 'rgba(34,211,238,0.6)', shadowBlur: 12 },
+                areaStyle: area ? {
+                    color: grad(0, 0, 0, 1, 'rgba(34,211,238,0.35)', 'rgba(34,211,238,0.02)')
+                } : undefined,
+                data: vals
+            }]
+        };
+    }
+
+    function buildBar(data, measure, horizontal) {
+        var vals = data.series[measure] || [];
+        var cats = data.categories || [];
+        var maxV = Math.max.apply(null, vals.concat([1]));
+
+        var axisCat = {
+            type: 'category', data: cats,
+            axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false },
+            axisLabel: Object.assign({}, AXIS_TEXT, {
+                fontSize: 10,
+                width: horizontal ? 100 : 60,
+                overflow: 'truncate'
+            })
+        };
+        var axisVal = {
+            type: 'value', splitLine: SPLIT, axisLine: { show: false }, axisTick: { show: false },
+            axisLabel: AXIS_TEXT
+        };
+
+        return {
+            grid: { left: horizontal ? 106 : 46, right: 30, top: 22, bottom: 28 },
+            tooltip: Object.assign({
+                trigger: 'axis',
+                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(34,211,238,0.06)' } },
+                formatter: function (p) {
+                    return p[0].name + '<br/>' + MEASURE_LABEL[measure] + '：<b style="color:' + C.accent + '">' + p[0].value + '</b>';
+                }
+            }, tip()),
+            xAxis: horizontal ? axisVal : axisCat,
+            yAxis: horizontal ? Object.assign({}, axisCat, { inverse: true }) : axisVal,
+            series: [{
+                type: 'bar',
+                barWidth: horizontal ? '58%' : '46%',
+                data: vals.map(function (v) {
+                    var ratio = v / maxV;
+                    return {
+                        value: v,
+                        itemStyle: {
+                            borderRadius: horizontal ? [0, 3, 3, 0] : [3, 3, 0, 0],
+                            color: horizontal
+                                ? grad(0, 0, 1, 0, 'rgba(34,211,238,0.30)', ratio > 0.7 ? C.warm : C.accent)
+                                : grad(0, 1, 0, 0, 'rgba(34,211,238,0.12)', ratio > 0.7 ? C.warm : C.accent)
+                        }
+                    };
+                }),
+                label: {
+                    show: true,
+                    position: horizontal ? 'right' : 'top',
+                    fontSize: 10,
+                    fontFamily: 'Consolas, monospace',
+                    color: '#9FB3C8',
+                    formatter: function (p) { return num(p.value); }
+                }
+            }]
+        };
+    }
+
+    /* ---------- 7.4 选择器事件 ---------- */
+
+    function bindCustom() {
+        document.getElementById('cfg-dim').addEventListener('change', function (e) {
+            CFG.dim = e.target.value;
+            normalizeCfg();
+            syncSelectors();
+            renderCustom();
+            localStorage.setItem(CUSTOM_STORE, JSON.stringify(CFG));
+        });
+        document.getElementById('cfg-measure').addEventListener('change', function (e) {
+            CFG.measure = e.target.value;
+            renderCustom();
+            localStorage.setItem(CUSTOM_STORE, JSON.stringify(CFG));
+        });
+        document.getElementById('cfg-type').addEventListener('change', function (e) {
+            CFG.type = e.target.value;
+            renderCustom();
+            localStorage.setItem(CUSTOM_STORE, JSON.stringify(CFG));
+        });
+    }
 
     /* ==================================================================
-     * 8. 图 6：专辑曲目数 × 歌曲平均热度（课程要求的第 4 张图）
+     * 8. 专辑曲目数 × 歌曲平均热度（课程要求的第 4 张图）
      * ================================================================== */
     /**
      * 横轴：专辑曲目数分箱 2 / 3-4 / 5-9 / 10+（只统计曲目数 ≥ 2 的专辑）
@@ -1209,20 +1469,35 @@
             getJSON('/api/album/bins'),
             getJSON('/api/song/scatter')
         ]).then(function (res) {
+            // 原始数据统一存进 DATA：固定那几张图用它，可配置图表也复用它
+            DATA.overview = res[0];
+            DATA.yearTrend = res[1];
+            DATA.distribution = res[2];
+            DATA.topArtists = res[3];
+            DATA.spans = res[4];
+            DATA.quadrant = res[5];
+            DATA.albumBins = res[6];
+            DATA.scatter = res[7];
+
             renderKPI(res[0]);
             renderTrend(res[1]);
             renderDistribution(res[2]);
             renderTop(res[3]);
             renderSpan(res[4]);
-            renderQuadrant(res[5]);
             renderAlbum(res[6]);
             renderScatter(res[7]);
+
+            // 可配置图表：先把选择器按兼容性矩阵铺好，再按当前配置画一次
+            normalizeCfg();
+            syncSelectors();
+            renderCustom();
         }).catch(function (e) {
             toast('数据加载失败：' + e.message, true);
             console.error(e);
         });
 
         bindPanel();       // 搜索面板：搜索框 / 备注 / 按钮 / 两个列表 / 模式切换
+        bindCustom();      // 可配置图表：维度 / 度量 / 图形 三个选择器
 
         setMode('artist');   // 默认「按歌手搜索」，不记忆上次选择（setMode 内部会拉列表）
     }
