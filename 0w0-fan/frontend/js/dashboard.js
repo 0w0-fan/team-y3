@@ -581,9 +581,13 @@
             groups[key].push([p.works, p.avgPop, p.name, p.albumCount]);
         });
 
+        /**
+         * 气泡大小：按专辑数开方映射，避免「专辑多的歌手」把点撑得过份大。
+         * 上限压到 22px（原来 31px）：2,486 个点里大点越少，重绘越轻。
+         */
         function size(val) {
             var albums = val[3] || 1;
-            return 5 + Math.sqrt(albums / Math.max(maxAlbum, 1)) * 26;
+            return 4 + Math.sqrt(albums / Math.max(maxAlbum, 1)) * 18;
         }
 
         var defs = [
@@ -598,15 +602,22 @@
                 name: def.name,
                 type: 'scatter',
                 symbolSize: size,
+                // 注意：这里刻意不加 shadowBlur —— 2,486 个点每点一次阴影会把绘制成本放大十几倍，
+                // 实测就是主视觉卡顿的元凶。发光效果只在鼠标悬停（emphasis）时给。
                 itemStyle: {
                     color: def.color,
-                    opacity: def.key === 'tail' ? 0.5 : 0.8,
-                    borderColor: 'rgba(255,255,255,0.25)',
-                    borderWidth: def.key === 'star' ? 0.6 : 0,
-                    shadowBlur: def.key === 'star' ? 10 : 0,
-                    shadowColor: 'rgba(34,211,238,0.7)'
+                    opacity: def.key === 'tail' ? 0.5 : 0.8
                 },
-                emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+                emphasis: {
+                    scale: 1.35,
+                    itemStyle: {
+                        opacity: 1,
+                        borderColor: '#fff',
+                        borderWidth: 1,
+                        shadowBlur: 12,
+                        shadowColor: 'rgba(34,211,238,0.9)'
+                    }
+                },
                 data: groups[def.key]
             };
             if (idx === 0) {
@@ -645,7 +656,11 @@
 
         chart.setOption({
             grid: { left: 52, right: 22, top: 34, bottom: 40 },
-            animationDuration: 1200,
+            // 入场动画保留（有仪式感），但用 progressive 分帧绘制，避免 2,486 个点一次性铺开卡住主线程
+            animationDuration: 900,
+            animationEasing: 'cubicOut',
+            progressive: 1200,
+            progressiveThreshold: 800,
             legend: {
                 right: 10,
                 top: 2,
@@ -825,23 +840,142 @@
     }
 
     /* ==================================================================
-     * 10. 交互件 1：关注歌手
+     * 10. 合并面板：按歌手搜索（关注歌手） / 按歌曲搜索（打标签）
+     *     两种模式共用一个搜索框，点顶部两个按钮直接切换（不是下拉框）；
+     *     默认「按歌手搜索」，**不记忆**上次选择，刷新后回到默认项。
      * ================================================================== */
-    var favorites = [];
+    var MODE = 'artist';          // 当前模式：'artist' 按歌手 | 'song' 按歌曲
+    var favorites = [];           // artist_favorite 表的缓存
+    var tags = [];                // 当前选中歌曲的标签缓存
+    var pickedSong = null;        // 歌曲模式下选中的那首歌
+    var searchTimer = null;       // 输入防抖
+
+    /* ---------- 10.1 模式切换：面板、标题、计数、提示文字全部跟着变 ---------- */
+
+    function setMode(mode) {
+        MODE = mode;
+        var isArtist = (mode === 'artist');
+
+        var btns = document.querySelectorAll('#mode-switch .mode-btn');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle('active', btns[i].getAttribute('data-mode') === mode);
+        }
+
+        document.getElementById('pane-artist').style.display = isArtist ? 'flex' : 'none';
+        document.getElementById('pane-song').style.display = isArtist ? 'none' : 'flex';
+        document.getElementById('search-title').textContent = isArtist ? '关注歌手' : '歌曲打标签';
+
+        // 切换后搜索框的提示文字也换一套（歌手名 / 歌名）
+        document.getElementById('q-input').placeholder = isArtist
+            ? '歌手名，如 Billie Eilish（不区分大小写）'
+            : '歌名，如 lovely（只匹配歌名）';
+        document.getElementById('q-input').value = '';
+        document.getElementById('result-list').innerHTML =
+            '<div class="empty">' + (isArtist ? '输入歌手名开始搜索' : '输入歌名开始搜索') + '</div>';
+
+        refreshCountLabel();
+        if (isArtist) {
+            loadFavorites();
+        } else {
+            loadTags();
+        }
+    }
+
+    function refreshCountLabel() {
+        document.getElementById('search-count').textContent = (MODE === 'artist')
+            ? (favorites.length + ' 条')
+            : (tags.length + ' 个标签');
+        document.getElementById('kpi-fav').textContent = favorites.length;
+        document.getElementById('kpi-tag').textContent = tags.length;
+    }
+
+    /* ---------- 10.2 搜索：按模式走不同接口 ---------- */
+
+    function doSearch(keyword) {
+        if (!keyword) {
+            return;
+        }
+        if (MODE === 'artist') {
+            getJSON('/api/artist/search?q=' + encodeURIComponent(keyword) + '&limit=6')
+                .then(renderArtistResults)
+                .catch(function (e) { toast(e.message, true); });
+        } else {
+            getJSON('/api/song/search?q=' + encodeURIComponent(keyword) + '&limit=6')
+                .then(renderSongResults)
+                .catch(function (e) { toast(e.message, true); });
+        }
+    }
+
+    /** 歌手候选：点一下把名字填进输入框，再点「关注」 */
+    function renderArtistResults(rows) {
+        var box = document.getElementById('result-list');
+
+        if (!rows || !rows.length) {
+            box.innerHTML = '<div class="empty">库里没有匹配的歌手，也可以直接点「关注」把名字存下来</div>';
+            return;
+        }
+
+        box.innerHTML = rows.map(function (a, i) {
+            return '<div class="pick-item" data-name="' + esc(a.name) + '">' +
+                '<span class="rk">' + (i + 1) + '</span>' +
+                '<span class="song" title="' + esc(a.name) + '">' + esc(a.name) + '</span>' +
+                '<span class="artist">' + a.works + ' 首</span>' +
+                '<span class="pop">' + a.avgPop.toFixed(1) + '</span></div>';
+        }).join('');
+    }
+
+    /** 歌曲候选：点一下选中，然后打标签 */
+    function renderSongResults(rows) {
+        var box = document.getElementById('result-list');
+
+        if (!rows || !rows.length) {
+            box.innerHTML = '<div class="empty">没有找到匹配的歌名</div>';
+            return;
+        }
+
+        box.innerHTML = rows.map(function (s, i) {
+            return '<div class="pick-item" data-track="' + esc(s.trackId) + '" data-name="' + esc(s.trackName) +
+                '" data-artist="' + esc(s.artist) + '">' +
+                '<span class="rk">' + (i + 1) + '</span>' +
+                '<span class="song" title="' + esc(s.trackName) + '">' + esc(s.trackName) + '</span>' +
+                '<span class="artist" title="' + esc(s.artist) + '">' + esc(s.artist) + '</span>' +
+                '<span class="pop">' + s.popularity + '</span></div>';
+        }).join('');
+
+        if (pickedSong) {
+            var nodes = document.querySelectorAll('#result-list .pick-item');
+            for (var i = 0; i < nodes.length; i++) {
+                nodes[i].classList.toggle('active', nodes[i].getAttribute('data-track') === pickedSong.trackId);
+            }
+        }
+    }
+
+    /* ---------- 10.3 关注歌手 ---------- */
+
+    function loadFavorites() {
+        return getJSON('/api/favorite').then(function (rows) {
+            favorites = rows || [];
+            renderFavorites();
+            refreshCountLabel();
+        });
+    }
 
     function renderFavorites() {
         var box = document.getElementById('fav-list');
-        document.getElementById('fav-count').textContent = favorites.length + ' 条';
-        document.getElementById('kpi-fav').textContent = favorites.length;
 
         if (!favorites.length) {
-            box.innerHTML = '<div class="empty">还没有关注的歌手，搜一个关注试试</div>';
+            box.innerHTML = '<div class="empty">还没有关注的歌手</div>';
             return;
         }
 
         box.innerHTML = favorites.map(function (f) {
+            // 库里没有这位歌手时打一个「库外」标，提醒它不是数据集里的真实歌手
+            var flag = f.inDataset
+                ? '<span class="tag-in">库内</span>'
+                : '<span class="tag-out">库外</span>';
             return '<div class="item" data-id="' + f.id + '">' +
                 '<span class="name" title="' + esc(f.artistName) + '">' + esc(f.artistName) + '</span>' +
+                flag +
                 '<span class="note" data-note="' + esc(f.note || '') + '" title="' + esc(f.note || '') + '">' +
                 esc(f.note || '—') + '</span>' +
                 '<span class="time">' + esc((f.createdAt || '').slice(5, 16)) + '</span>' +
@@ -852,41 +986,23 @@
         }).join('');
     }
 
-    function loadFavorites() {
-        return getJSON('/api/favorite').then(function (rows) {
-            favorites = rows || [];
-            renderFavorites();
-        });
-    }
-
-    function afterWrite() {
-        return Promise.all([loadFavorites(), refreshCounters()]);
-    }
-
-    function refreshCounters() {
-        return getJSON('/api/overview').then(function (o) {
-            document.getElementById('kpi-fav').textContent = o.favorites;
-            document.getElementById('kpi-tag').textContent = o.tags;
-        }).catch(function () { /* 计数刷新失败不影响写库结果 */ });
-    }
-
     function addFavorite() {
-        var nameInput = document.getElementById('fav-name');
+        var nameInput = document.getElementById('q-input');
         var noteInput = document.getElementById('fav-note');
         var name = nameInput.value.trim();
 
         if (!name) {
-            toast('先填写歌手名', true);
+            toast('先填写或选择歌手名', true);
             nameInput.focus();
             return;
         }
 
         postJSON('/api/favorite', { artistName: name, note: noteInput.value.trim() })
-            .then(function () {
-                nameInput.value = '';
+            .then(function (saved) {
                 noteInput.value = '';
-                toast('已关注 ' + name);
-                return afterWrite();
+                // 服务端会判断这位歌手在不在数据集里，这里把结果如实告诉用户
+                toast(saved.inDataset ? ('已关注 ' + name + '（库内）') : ('已关注 ' + name + '（库外，数据集中没有）'));
+                return loadFavorites();
             })
             .catch(function (e) { toast(e.message, true); });
     }
@@ -913,7 +1029,7 @@
         postJSON('/api/favorite/' + id, { note: value }, 'PUT')
             .then(function () {
                 toast('备注已更新');
-                return afterWrite();
+                return loadFavorites();
             })
             .catch(function (e) { toast(e.message, true); });
     }
@@ -922,14 +1038,14 @@
         getJSON('/api/favorite/' + id, { method: 'DELETE' })
             .then(function () {
                 toast('已取消关注');
-                return afterWrite();
+                return loadFavorites();
             })
             .catch(function (e) { toast(e.message, true); });
     }
 
     function bindFavorites() {
         document.getElementById('fav-add').addEventListener('click', addFavorite);
-        document.getElementById('fav-name').addEventListener('keydown', function (e) {
+        document.getElementById('fav-note').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 addFavorite();
             }
@@ -956,49 +1072,7 @@
         });
     }
 
-    /* ==================================================================
-     * 11. 交互件 2：歌曲打标签
-     * ================================================================== */
-    var pickedSong = null;
-    var searchTimer = null;
-
-    function highlightPick(trackId) {
-        var nodes = document.querySelectorAll('#song-results .pick-item');
-        for (var i = 0; i < nodes.length; i++) {
-            nodes[i].classList.toggle('active', nodes[i].getAttribute('data-track') === trackId);
-        }
-    }
-
-    function renderSongResults(rows) {
-        var box = document.getElementById('song-results');
-
-        if (!rows || !rows.length) {
-            box.innerHTML = '<div class="empty">没有找到匹配的歌曲</div>';
-            return;
-        }
-
-        box.innerHTML = rows.map(function (s, i) {
-            return '<div class="pick-item" data-track="' + esc(s.trackId) + '" data-name="' + esc(s.trackName) +
-                '" data-artist="' + esc(s.artist) + '">' +
-                '<span class="rk">' + (i + 1) + '</span>' +
-                '<span class="song" title="' + esc(s.trackName) + '">' + esc(s.trackName) + '</span>' +
-                '<span class="artist" title="' + esc(s.artist) + '">' + esc(s.artist) + '</span>' +
-                '<span class="pop">' + s.popularity + '</span></div>';
-        }).join('');
-
-        if (pickedSong) {
-            highlightPick(pickedSong.trackId);
-        }
-    }
-
-    function searchSongs(keyword) {
-        if (!keyword) {
-            return;
-        }
-        getJSON('/api/song/search?q=' + encodeURIComponent(keyword) + '&limit=6')
-            .then(renderSongResults)
-            .catch(function (e) { toast(e.message, true); });
-    }
+    /* ---------- 10.4 歌曲打标签 ---------- */
 
     function pickSong(el) {
         pickedSong = {
@@ -1008,23 +1082,10 @@
         };
         document.getElementById('picked').style.display = 'flex';
         document.getElementById('picked-title').textContent = pickedSong.trackName + ' · ' + pickedSong.artist;
-        highlightPick(pickedSong.trackId);
+        document.getElementById('result-list').querySelectorAll('.pick-item').forEach(function (n) {
+            n.classList.toggle('active', n.getAttribute('data-track') === pickedSong.trackId);
+        });
         loadTags();
-    }
-
-    function renderTags(rows) {
-        var box = document.getElementById('tag-list');
-        document.getElementById('tag-count').textContent = rows.length + ' 个标签';
-
-        if (!rows.length) {
-            box.innerHTML = '<div class="empty" style="width:100%">这首歌还没有标签</div>';
-            return;
-        }
-
-        box.innerHTML = rows.map(function (t) {
-            return '<span class="tag-chip">' + esc(t.tagName) +
-                '<i data-id="' + t.id + '" title="删除">×</i></span>';
-        }).join('');
     }
 
     function loadTags() {
@@ -1032,13 +1093,31 @@
             return Promise.resolve();
         }
         return getJSON('/api/tag?trackId=' + encodeURIComponent(pickedSong.trackId))
-            .then(function (rows) { renderTags(rows || []); })
+            .then(function (rows) {
+                tags = rows || [];
+                renderTags();
+                refreshCountLabel();
+            })
             .catch(function (e) { toast(e.message, true); });
+    }
+
+    function renderTags() {
+        var box = document.getElementById('tag-list');
+
+        if (!tags.length) {
+            box.innerHTML = '<div class="empty" style="width:100%">这首歌还没有标签</div>';
+            return;
+        }
+
+        box.innerHTML = tags.map(function (t) {
+            return '<span class="tag-chip">' + esc(t.tagName) +
+                '<i data-id="' + t.id + '" title="删除">×</i></span>';
+        }).join('');
     }
 
     function addTag() {
         if (!pickedSong) {
-            toast('先搜索并选中一首歌', true);
+            toast('先在搜索结果里点一首歌', true);
             return;
         }
         var input = document.getElementById('tag-input');
@@ -1053,8 +1132,8 @@
         postJSON('/api/tag', { trackId: pickedSong.trackId, tagName: tag })
             .then(function () {
                 input.value = '';
-                toast('已添加标签「' + tag + '」');
-                return Promise.all([loadTags(), refreshCounters()]);
+                toast('已给《' + pickedSong.trackName + '》打上「' + tag + '」');
+                return loadTags();
             })
             .catch(function (e) { toast(e.message, true); });
     }
@@ -1063,41 +1142,12 @@
         getJSON('/api/tag/' + id, { method: 'DELETE' })
             .then(function () {
                 toast('标签已删除');
-                return Promise.all([loadTags(), refreshCounters()]);
+                return loadTags();
             })
             .catch(function (e) { toast(e.message, true); });
     }
 
     function bindTags() {
-        var q = document.getElementById('song-q');
-
-        q.addEventListener('input', function () {
-            clearTimeout(searchTimer);
-            var keyword = q.value.trim();
-            if (!keyword) {
-                document.getElementById('song-results').innerHTML = '<div class="empty">输入关键词找歌</div>';
-                return;
-            }
-            searchTimer = setTimeout(function () { searchSongs(keyword); }, 320);
-        });
-
-        q.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                searchSongs(q.value.trim());
-            }
-        });
-
-        document.getElementById('song-search').addEventListener('click', function () {
-            searchSongs(q.value.trim());
-        });
-
-        document.getElementById('song-results').addEventListener('click', function (e) {
-            var row = e.target.closest('.pick-item');
-            if (row) {
-                pickSong(row);
-            }
-        });
-
         document.getElementById('tag-add').addEventListener('click', addTag);
         document.getElementById('tag-input').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
@@ -1110,6 +1160,64 @@
                 deleteTag(icon.getAttribute('data-id'));
             }
         });
+    }
+
+    /* ---------- 10.5 搜索框与结果列表：两种模式共用 ---------- */
+
+    function bindSearch() {
+        var q = document.getElementById('q-input');
+
+        // 输入防抖 320ms，避免每敲一个字都打一次库
+        q.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            var keyword = q.value.trim();
+            if (!keyword) {
+                document.getElementById('result-list').innerHTML =
+                    '<div class="empty">' + (MODE === 'artist' ? '输入歌手名开始搜索' : '输入歌名开始搜索') + '</div>';
+                return;
+            }
+            searchTimer = setTimeout(function () { doSearch(keyword); }, 320);
+        });
+
+        q.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                doSearch(q.value.trim());
+            }
+        });
+
+        document.getElementById('q-btn').addEventListener('click', function () {
+            doSearch(q.value.trim());
+        });
+
+        document.getElementById('result-list').addEventListener('click', function (e) {
+            var row = e.target.closest('.pick-item');
+            if (!row) {
+                return;
+            }
+            if (MODE === 'artist') {
+                // 歌手模式：点一下把名字填进输入框，光标移到备注，方便接着关注
+                document.getElementById('q-input').value = row.getAttribute('data-name');
+                document.getElementById('fav-note').focus();
+            } else {
+                pickSong(row);
+            }
+        });
+
+        document.getElementById('mode-switch').addEventListener('click', function (e) {
+            var btn = e.target.closest('.mode-btn');
+            if (btn) {
+                setMode(btn.getAttribute('data-mode'));
+            }
+        });
+    }
+
+    /* ---------- 10.6 顶部 KPI 的两个计数 ---------- */
+
+    function refreshCounters() {
+        return getJSON('/api/overview').then(function (o) {
+            document.getElementById('kpi-fav').textContent = o.favorites;
+            document.getElementById('kpi-tag').textContent = o.tags;
+        }).catch(function () { /* 计数刷新失败不影响写库结果 */ });
     }
 
     /* ==================================================================
@@ -1154,9 +1262,11 @@
             console.error(e);
         });
 
-        bindFavorites();
-        bindTags();
+        bindSearch();      // 搜索框 + 结果列表（两种模式共用）
+        bindFavorites();   // 关注歌手的按钮与列表
+        bindTags();        // 标签的按钮与列表
 
+        setMode('artist');   // 默认「按歌手搜索」，不记忆上次选择
         loadFavorites().catch(function (e) { toast('关注列表加载失败：' + e.message, true); });
     }
 
