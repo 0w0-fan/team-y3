@@ -778,3 +778,74 @@ html.native-shot #stage {
     color: #2A1206;
     background: rgba(251, 191, 36, 0.85);
 }
+
+/* ---------- 搜索面板的排版修正 ---------- */
+
+/* 之前把 pane 设成 display:flex 却没给方向，导致「备注 + 关注」和已收藏列表被排成左右两栏。
+   现在两种模式共用同一段 DOM，这里显式声明纵向排列。 */
+.form-body,
+#pane-artist,
+#pane-song {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-height: 0;
+    flex: 1;
+}
+
+.form-body > .row {
+    flex: none;
+}
+
+/* 输入框一行三件：名称自适应，备注固定宽，两个按钮不压缩 */
+.form-body > .row input.short {
+    flex: 0 0 108px;
+    max-width: 108px;
+}
+
+/* 已收藏列表：按表格排布，备注/标签固定落在中段，各行的列位置对齐 */
+.saved-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 4px;
+}
+
+.saved-list .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) 36px minmax(0, 0.9fr) 74px auto;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+.saved-list .item .name {
+    min-width: 0;
+    max-width: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-title);
+}
+
+/* 中段的备注 / 标签列：固定列宽，像表格一样对齐 */
+.saved-list .item .note {
+    min-width: 0;
+    flex: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-sub);
+    font-size: 11px;
+}
+
+.saved-list .item .time {
+    text-align: right;
+}
+
+.saved-list .item .ops {
+    justify-self: end;
+}
