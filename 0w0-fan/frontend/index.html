@@ -159,9 +159,8 @@
                         <button id="save-btn">关注</button>
                     </div>
 
-                    <div class="list pick-list" id="result-list">
-                        <div class="empty">输入关键词开始搜索</div>
-                    </div>
+                    <!-- 搜索结果：像下拉菜单一样浮在收藏列表之上，不推挤下面的内容 -->
+                    <div class="result-overlay" id="result-list"></div>
 
                     <div class="list saved-list" id="saved-list">
                         <div class="empty">还没有关注任何歌手</div>
@@ -171,64 +170,74 @@
 
         </div>
 
-        <!-- ==================== 自定义设置抽屉 ==================== -->
-        <aside class="drawer" id="drawer">
-            <div class="drawer-head">
-                <h3>自定义外观</h3>
-                <button class="ghost mini" id="drawer-close">收起</button>
+        <!-- ==================== 自定义设置（点「自定义」才出现，默认不显示） ==================== -->
+        <div class="modal-mask" id="modal-mask"></div>
+        <div class="modal" id="modal">
+            <div class="modal-head">
+                <h3>自定义外观与布局</h3>
+                <button class="ghost mini" id="modal-close">关闭</button>
             </div>
 
-            <div class="drawer-body">
-                <div class="cfg-group">
-                    <div class="cfg-group-title">显示面板</div>
-                    <div class="cfg-checks" id="cfg-panels"></div>
+            <div class="modal-body">
+                <div class="cfg-col">
+                    <div class="cfg-group">
+                        <div class="cfg-group-title">显示面板</div>
+                        <div class="cfg-checks" id="cfg-panels"></div>
+                    </div>
+
+                    <div class="cfg-group">
+                        <div class="cfg-group-title">布局拖动</div>
+                        <label class="cfg-check">
+                            <input type="checkbox" id="cfg-allow-drag">
+                            <span>允许拖动布局（默认关闭，防止演示时误拖）</span>
+                        </label>
+                        <label class="cfg-row">
+                            <span>拖动方式</span>
+                            <select class="cfg-select" id="cfg-drag-mode">
+                                <option value="swap">交换格子（拖到哪个图，两个图互换位置）</option>
+                                <option value="snap">只吸附回最近的格子（不交换）</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="cfg-group">
+                        <div class="cfg-group-title">毛玻璃与透明度</div>
+                        <label class="cfg-row">
+                            <span>毛玻璃 <b id="cfg-blur-val">0</b> px</span>
+                            <input type="range" id="cfg-blur" min="0" max="24" step="1" value="0">
+                        </label>
+                        <label class="cfg-row">
+                            <span>面板不透明 <b id="cfg-alpha-val">92</b> %</span>
+                            <input type="range" id="cfg-alpha" min="20" max="100" step="1" value="92">
+                        </label>
+                        <p class="cfg-tip">毛玻璃要有效果，面板得是半透明的：把「不透明」调到 70% 以下最明显。</p>
+                    </div>
                 </div>
 
-                <div class="cfg-group">
-                    <div class="cfg-group-title">背景与毛玻璃</div>
-                    <label class="cfg-row">
-                        <span>底色</span>
-                        <input type="color" id="cfg-bg" value="#070C16">
-                    </label>
-                    <label class="cfg-row">
-                        <span>毛玻璃 <b id="cfg-blur-val">0</b> px</span>
-                        <input type="range" id="cfg-blur" min="0" max="24" step="1" value="0">
-                    </label>
-                    <label class="cfg-row">
-                        <span>面板透明度 <b id="cfg-alpha-val">92</b> %</span>
-                        <input type="range" id="cfg-alpha" min="30" max="100" step="1" value="92">
-                    </label>
-                </div>
+                <div class="cfg-col">
+                    <div class="cfg-group">
+                        <div class="cfg-group-title">背景渐变</div>
+                        <label class="cfg-row"><span>颜色 A</span><input type="color" id="cfg-bg-c1" value="#070C16"></label>
+                        <label class="cfg-row"><span>颜色 B</span><input type="color" id="cfg-bg-c2" value="#0B1120"></label>
+                        <label class="cfg-row"><span>强度 <b id="cfg-bg-mix-val">0</b> %</span><input type="range" id="cfg-bg-mix" min="0" max="100" step="1" value="0"></label>
+                        <label class="cfg-row"><span>方向 <b id="cfg-bg-deg-val">135</b>°</span><input type="range" id="cfg-bg-deg" min="0" max="360" step="5" value="135"></label>
+                    </div>
 
-                <div class="cfg-group">
-                    <div class="cfg-group-title">渐变背景（叠加在底色上）</div>
-                    <label class="cfg-row">
-                        <span>颜色 A</span>
-                        <input type="color" id="cfg-c1" value="#22D3EE">
-                    </label>
-                    <label class="cfg-row">
-                        <span>颜色 B</span>
-                        <input type="color" id="cfg-c2" value="#A78BFA">
-                    </label>
-                    <label class="cfg-row">
-                        <span>强度 <b id="cfg-mix-val">30</b> %</span>
-                        <input type="range" id="cfg-mix" min="0" max="80" step="1" value="30">
-                    </label>
-                    <label class="cfg-row">
-                        <span>方向 <b id="cfg-deg-val">135</b>°</span>
-                        <input type="range" id="cfg-deg" min="0" max="360" step="5" value="135">
-                    </label>
+                    <div class="cfg-group">
+                        <div class="cfg-group-title">面板渐变</div>
+                        <label class="cfg-row"><span>颜色 A</span><input type="color" id="cfg-pn-c1" value="#22D3EE"></label>
+                        <label class="cfg-row"><span>颜色 B</span><input type="color" id="cfg-pn-c2" value="#A78BFA"></label>
+                        <label class="cfg-row"><span>强度 <b id="cfg-pn-mix-val">0</b> %</span><input type="range" id="cfg-pn-mix" min="0" max="80" step="1" value="0"></label>
+                        <label class="cfg-row"><span>方向 <b id="cfg-pn-deg-val">135</b>°</span><input type="range" id="cfg-pn-deg" min="0" max="360" step="5" value="135"></label>
+                    </div>
                 </div>
-
-                <div class="drawer-actions">
-                    <button id="btn-save-theme">保存</button>
-                    <button class="ghost" id="btn-reset-theme">恢复默认</button>
-                </div>
-                <p class="drawer-tip">
-                    拖动面板标题栏可移动，拖动四周边缘可缩放；布局与外观都会自动记住（存在浏览器本地）。
-                </p>
             </div>
-        </aside>
+
+            <div class="modal-actions">
+                <button id="btn-save-theme">保存</button>
+                <button class="ghost" id="btn-reset-theme">恢复默认</button>
+            </div>
+        </div>
 
         <div id="toast"></div>
 

@@ -258,7 +258,7 @@
                     axisLabel: AXIS_TEXT
                 }
             ],
-            dataZoom: [{ type: 'inside', xAxisIndex: 0, startValue: years[0], endValue: years[WIN - 1], zoomLock: true }],
+            dataZoom: [{ type: 'inside', xAxisIndex: 0, start: 0, end: (WIN / 62) * 100, zoomLock: true }],
             series: [
                 {
                     name: '歌曲数',
@@ -283,17 +283,33 @@
             ]
         });
 
-        // 窗口自动巡航（动效；标签页隐藏时自动暂停）
-        every(1500, function () {
-            var maxStart = Math.max(1, years.length - WIN);
-            start = (start + 1) % maxStart;
-            chart.setOption({
-                dataZoom: [{
-                    startValue: years[start],
-                    endValue: years[Math.min(start + WIN - 1, years.length - 1)]
-                }]
-            });
-        });
+        // 窗口自动巡航：用「连续平移」而不是一跳一跳，走到底再折返；
+        // 鼠标移到图上会暂停（方便看细节），标签页隐藏时也停（document.hidden）。
+        var winPct = (WIN / years.length) * 100;
+        var pos = 0;
+        var dir = 1;
+        var paused = false;
+        var SPEED = 0.02;      // 每帧平移的百分比，约 1.2%/秒，全程往返约 100 秒
+
+        var box = document.getElementById('chart-trend');
+        box.addEventListener('mouseenter', function () { paused = true; });
+        box.addEventListener('mouseleave', function () { paused = false; });
+
+        (function cruise() {
+            requestAnimationFrame(cruise);
+            if (paused || document.hidden) {
+                return;
+            }
+            pos += SPEED * dir;
+            if (pos >= 100 - winPct) {
+                pos = 100 - winPct;
+                dir = -1;
+            } else if (pos <= 0) {
+                pos = 0;
+                dir = 1;
+            }
+            chart.setOption({ dataZoom: [{ start: pos, end: pos + winPct }] });
+        })();
 
         document.getElementById('trend-sub').innerHTML =
             d.years + ' 年 · 峰值 <b>' + d.peakYear + '</b>（' + num(d.peakSongs) + ' 首）';
@@ -1148,7 +1164,7 @@
         document.getElementById('save-btn').textContent = t.action;
         document.getElementById('q-input').value = '';
         document.getElementById('note-input').value = '';
-        document.getElementById('result-list').innerHTML = '<div class="empty">' + t.emptyHint + '</div>';
+        closeOverlay();          // 结果浮层：没内容时不占地方
 
         loadSaved();
     }
@@ -1174,41 +1190,48 @@
         }
     }
 
+    /** 结果浮层：有内容才弹出来，盖在收藏列表上面，不推挤下面的内容 */
+    function openOverlay(html) {
+        var box = document.getElementById('result-list');
+        box.innerHTML = html;
+        box.classList.add('open');
+    }
+
+    function closeOverlay() {
+        document.getElementById('result-list').classList.remove('open');
+    }
+
     /** 歌手候选：点一下把名字填进输入框 */
     function renderArtistResults(rows) {
-        var box = document.getElementById('result-list');
-
         if (!rows || !rows.length) {
-            box.innerHTML = '<div class="empty">库里没有匹配的歌手，直接点「关注」也能把名字存下来</div>';
+            openOverlay('<div class="empty">库里没有匹配的歌手，也是可以直接点「关注」把名字存下来的</div>');
             return;
         }
 
-        box.innerHTML = rows.map(function (a, i) {
+        openOverlay(rows.map(function (a, i) {
             return '<div class="pick-item" data-name="' + esc(a.name) + '">' +
                 '<span class="rk">' + (i + 1) + '</span>' +
                 '<span class="song" title="' + esc(a.name) + '">' + esc(a.name) + '</span>' +
                 '<span class="artist">' + a.works + ' 首</span>' +
                 '<span class="pop">' + a.avgPop.toFixed(1) + '</span></div>';
-        }).join('');
+        }).join(''));
     }
 
     /** 歌曲候选：点一下把歌名填进输入框，并把 trackId 记下来 */
     function renderSongResults(rows) {
-        var box = document.getElementById('result-list');
-
         if (!rows || !rows.length) {
-            box.innerHTML = '<div class="empty">库里没有这首歌，直接点「收藏」也能把歌名存下来</div>';
+            openOverlay('<div class="empty">库里没有这首歌，也是可以直接点「收藏」把歌名存下来的</div>');
             return;
         }
 
-        box.innerHTML = rows.map(function (s, i) {
+        openOverlay(rows.map(function (s, i) {
             return '<div class="pick-item" data-track="' + esc(s.trackId) + '" data-name="' + esc(s.trackName) +
                 '" data-artist="' + esc(s.artist) + '">' +
                 '<span class="rk">' + (i + 1) + '</span>' +
                 '<span class="song" title="' + esc(s.trackName) + '">' + esc(s.trackName) + '</span>' +
                 '<span class="artist" title="' + esc(s.artist) + '">' + esc(s.artist) + '</span>' +
                 '<span class="pop">' + s.popularity + '</span></div>';
-        }).join('');
+        }).join(''));
 
         // 把当前选中项高亮回来（列表内容保持不变，只是标一下选中状态）
         if (picked) {
@@ -1356,8 +1379,7 @@
             clearTimeout(searchTimer);
             var kw = q.value.trim();
             if (!kw) {
-                document.getElementById('result-list').innerHTML =
-                    '<div class="empty">' + TEXT[MODE].emptyHint + '</div>';
+                closeOverlay();          // 清空就收起浮层
                 return;
             }
             searchTimer = setTimeout(function () { doSearch(kw); }, 320);
@@ -1388,6 +1410,7 @@
             }
             var name = row.getAttribute('data-name');
             q.value = name;
+            closeOverlay();              // 名字已填进输入框，浮层可以收了
             if (MODE === 'song') {
                 picked = { trackId: row.getAttribute('data-track'), songName: name };
                 var nodes = document.querySelectorAll('#result-list .pick-item');
