@@ -82,10 +82,13 @@ body {
 
 .topbar {
     position: absolute;
-    left: 16px;
-    right: 16px;
-    top: 16px;
+    /* 比面板多出 8px（面板从 16px 起，顶栏从 8px 起），左右对称、层次感更强；
+       并且必须压住画布，否则画布会盖在按钮上，点不动「自定义」 */
+    left: 8px;
+    right: 8px;
+    top: 8px;
     height: 72px;
+    z-index: 30;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -180,6 +183,7 @@ body {
     top: 0;
     right: 0;
     bottom: 0;
+    z-index: 1;              /* 必须在顶栏之下，否则会挡住顶栏按钮的点击 */
 }
 
 /* ---------- 面板（卡片）：技能 panel 规范 + 四角装饰 ---------- */
@@ -829,10 +833,19 @@ html.native-shot #stage {
  * 布局引擎：拖动 / 缩放 / 设置抽屉 / 可配置图表
  * ====================================================================== */
 
-/* 标题栏：鼠标提示「可拖动」 */
+/* 标题栏：只有打开了「允许拖动布局」才把鼠标指针变成「可移动」，
+   否则默认指针，避免看起来能拖却拖不动 */
 .panel .panel-head {
-    cursor: move;
     user-select: none;
+}
+
+body.drag-enabled .panel .panel-head {
+    cursor: move;
+}
+
+/* 被锁定（绑定）的面板：鼠标指针用默认，明确告诉用户它不参与交换 */
+body.drag-enabled .panel.locked .panel-head {
+    cursor: default;
 }
 
 /* 拖动、缩放过程中的状态（加阴影 + 置顶，手感更明确） */
@@ -1011,7 +1024,7 @@ html.native-shot #stage {
     top: 62px;            /* 正好落在搜索行下方 */
     z-index: 30;
     display: none;
-    max-height: 190px;
+    max-height: 260px;   /* 放宽一点，配合更多候选条数用滚轮翻 */
     overflow-y: auto;
     padding: 4px;
     background: rgba(8, 17, 30, 0.98);
