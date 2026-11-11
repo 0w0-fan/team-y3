@@ -1,0 +1,16 @@
+# 本目录专属忽略规则（不动仓库根的 .gitignore）
+
+# 清洗产物体积大（CSV 约 6.9 MB），由 01_clean_and_aggregate.py 重新生成
+data/genre_songs_clean.csv
+data/genre_dashboard_data.xlsx
+data/export/
+
+# 构建产物
+backend/target/
+*.class
+*.jar
+
+# IDE / 日志
+.idea/
+*.iml
+*.log

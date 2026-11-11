@@ -1,0 +1,59 @@
+server:
+  port: 8088
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  tomcat:
+    uri-encoding: UTF-8
+
+spring:
+  application:
+    name: spotify-genre-dashboard
+  # 前端在工程根的 frontend/ 目录，按「启动时的工作目录」逐个试；最后回落到 classpath（jar 里那份）
+  web:
+    resources:
+      static-locations:
+        - file:../frontend/
+        - file:frontend/
+        - file:yyx-golds/frontend/
+        - classpath:/static/
+      cache:
+        period: 0
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/spotify_genre?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: root
+    password: '123456'
+    hikari:
+      pool-name: SpotifyHikariPool
+      minimum-idle: 2
+      maximum-pool-size: 10
+      idle-timeout: 600000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+  # 启动时幂等创建 genre_watch（关注列表 CRUD 用），不改动 spotify_songs
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/genre_watch.sql
+      continue-on-error: false
+      encoding: UTF-8
+  jackson:
+    default-property-inclusion: always
+    time-zone: Asia/Shanghai
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-statement-timeout: 30
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    root: info
+    com.spotify.dashboard: debug
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"

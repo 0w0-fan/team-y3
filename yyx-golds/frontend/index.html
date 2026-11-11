@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>歌曲 流派与子流派流行度大屏</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<div class="stage">
+    <div class="screen" id="screen">
+        <!-- ==================== 顶栏 ==================== -->
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark"></div>
+                <div class="brand-text">
+                    <h1>歌曲 流派与子流派流行度大屏</h1>
+                    <p class="subtitle">
+                        6 大流派 × 4 子流派 × 471 个歌单的供给结构
+                        <span class="dot">·</span> 32,833 条歌单-曲目记录（未去重）
+                        <span class="dot">·</span> 曲风「崛起 / 衰退」指歌单供给结构变化
+                    </p>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="filter-chip" id="filterChip" hidden>
+                    <span class="chip-label">当前联动</span>
+                    <span class="chip-genre" id="filterGenre">—</span>
+                    <button class="chip-clear" id="chipClear" title="取消筛选（Esc）">×</button>
+                </div>
+                <button class="ghost-btn accent" id="btnWatch">
+                    <span class="btn-ico">☆</span> 流派关注 <em id="watchCount">0</em>
+                </button>
+                <div class="clock">
+                    <span class="clock-time" id="clockTime">--:--:--</span>
+                    <span class="clock-date" id="clockDate">----/--/--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ==================== 主体 ==================== -->
+        <main class="layout">
+
+            <!-- 上排：核心主图 + 子流派下钻 -->
+            <div class="row row-top">
+                <section class="card hero">
+                    <div class="card-head">
+                        <div>
+                            <h2>流派供给 × 热度<span class="hero-note">主图</span></h2>
+                            <p class="card-sub">
+                                柱是歌曲数，读左轴；折线是平均热度，读右轴；虚线是全局均值
+                                <em id="subGlobal">42.48</em>
+                            </p>
+                        </div>
+                        <span class="meta" id="tagGlobal">全局均值 —</span>
+                    </div>
+                    <div class="chart" id="chartSummary"></div>
+                    <div class="hero-stats">
+                        <div class="stat" data-genre="edm" id="statSupply">
+                            <p class="stat-k">供给量第一</p>
+                            <p class="stat-v">
+                                <span class="stat-g" id="statSupplyGenre">edm</span>
+                                <b id="statSupplyCount">—</b>
+                            </p>
+                            <p class="stat-s" id="statSupplyNote">占比 —</p>
+                        </div>
+                        <div class="stat" data-genre="pop" id="statHeat">
+                            <p class="stat-k">平均热度第一</p>
+                            <p class="stat-v">
+                                <span class="stat-g" id="statHeatGenre">pop</span>
+                                <b id="statHeatAvg">—</b>
+                            </p>
+                            <p class="stat-s" id="statHeatNote">供给 —</p>
+                        </div>
+                        <div class="stat" id="statGap">
+                            <p class="stat-k">首末热度差</p>
+                            <p class="stat-v"><b id="statGapValue">—</b></p>
+                            <p class="stat-s" id="statGapNote">—</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2>子流派 TOP15 平均热度</h2>
+                            <p class="card-sub">24 个子流派按平均热度降序，颜色是所属流派</p>
+                        </div>
+                    </div>
+                    <div class="chart" id="chartRank"></div>
+                </section>
+            </div>
+
+            <!-- 下排：时间 / 特征 / 分布 -->
+            <div class="row row-bottom">
+                <section class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2>发行年份 × 流派供给</h2>
+                            <p class="card-sub">1990–2019 · 2020 年仅 785 行已截断</p>
+                        </div>
+                        <div class="seg" id="trendMode">
+                            <button class="seg-btn active" data-mode="count">绝对量</button>
+                            <button class="seg-btn" data-mode="share">占比%</button>
+                        </div>
+                    </div>
+                    <div class="chart" id="chartTrend"></div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2>六流派音频特征</h2>
+                            <p class="card-sub">7 个维度在 6 流派间做 min-max 归一化，悬停可看原始均值</p>
+                        </div>
+                    </div>
+                    <div class="chart" id="chartRadar"></div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2>热度分箱 × 流派</h2>
+                            <p class="card-sub">5 档热度区间，每根柱内是 6 流派的列内占比</p>
+                        </div>
+                        <span class="meta" id="tagHighBin">81-100 仅 —</span>
+                    </div>
+                    <div class="chart" id="chartBin"></div>
+                </section>
+            </div>
+        </main>
+
+        <!-- ==================== 底栏 ==================== -->
+        <footer class="footer">
+            <span>记录数 <em id="footTotal">—</em></span>
+            <span class="sep">|</span>
+            <span>数据源 <em>MySQL · spotify_genre.spotify_songs</em></span>
+            <span class="sep">|</span>
+            <span>粒度 <em>歌单-曲目行（不去重）</em></span>
+            <span class="grow"></span>
+            <span class="hint">点击任一图表中的流派即可联动，再点一次或按 Esc 取消</span>
+            <span class="sep">|</span>
+            <span>更新 <em id="footTime">—</em></span>
+        </footer>
+
+        <!-- ==================== 关注列表 CRUD ==================== -->
+        <div class="modal-mask" id="watchMask" hidden>
+            <div class="panel">
+                <div class="panel-head">
+                    <h3>流派关注列表 <small>增 / 删 / 改 / 查 · 实时同步 MySQL genre_watch</small></h3>
+                    <button class="panel-close" data-close="watchMask">×</button>
+                </div>
+                <div class="panel-body">
+                    <form class="form-row" id="watchForm">
+                        <input type="hidden" id="wId">
+                        <label>
+                            <span>流派</span>
+                            <select id="wGenre">
+                                <option value="pop">pop</option>
+                                <option value="rap">rap</option>
+                                <option value="rock">rock</option>
+                                <option value="latin">latin</option>
+                                <option value="r&amp;b">r&amp;b</option>
+                                <option value="edm">edm</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>关注等级</span>
+                            <select id="wLevel">
+                                <option value="5">5 · 极高</option>
+                                <option value="4">4 · 较高</option>
+                                <option value="3" selected>3 · 一般</option>
+                                <option value="2">2 · 较低</option>
+                                <option value="1">1 · 观察</option>
+                            </select>
+                        </label>
+                        <label class="grow">
+                            <span>备注</span>
+                            <input type="text" id="wNote" maxlength="255" placeholder="例如：供给量大但热度垫底，持续跟踪">
+                        </label>
+                        <button type="submit" class="primary-btn" id="wSubmit">新增</button>
+                        <button type="button" class="ghost-btn small" id="wReset">清空</button>
+                    </form>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                            <tr>
+                                <th style="width:56px">ID</th>
+                                <th style="width:80px">流派</th>
+                                <th style="width:78px">等级</th>
+                                <th>备注</th>
+                                <th style="width:152px">创建时间</th>
+                                <th style="width:152px">更新时间</th>
+                                <th style="width:112px">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody id="watchBody">
+                            <tr><td colspan="7" class="empty">加载中…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast" hidden></div>
+    </div>
+</div>
+
+<script src="js/echarts.min.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
