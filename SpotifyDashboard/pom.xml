@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- =================================================================
+         方向六 · “响度战争”可视化大屏    独立工程
+         只保留本模块真正用到的依赖，不掺任何老 Demo 的东西。
+
+         构建：mvn -o clean package -Dmaven.repo.local=D:/maven/repository
+         运行：java -jar target/spotify-dashboard.jar
+
+         说明：这里**不用** spring-boot-starter-parent 作为父 POM，
+         改成 import spring-boot-dependencies 的 BOM + 显式指定插件版本。
+         原因很实际——本机离线仓库里没有 parent 的 pom（老 Demo 当初也是走的
+         BOM import），用 parent 会导致 mvn -o 直接报 “Non-resolvable parent POM”。
+         走 BOM 的好处是：版本集中管理这件事一样做到了，插件版本还全程可见。
+         ================================================================= -->
+
+    <groupId>new_com.spotify2</groupId>
+    <artifactId>spotify-dashboard</artifactId>
+    <version>1.0.0</version>
+    <name>spotify-dashboard</name>
+    <description>Spotify 曲目物理属性（时长 / 响度 / BPM）分析与可视化大屏</description>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <spring-boot.version>2.7.6</spring-boot.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot 官方 BOM：统一管理 spring-* / jackson / tomcat 等版本 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Web + 内嵌 Tomcat + Jackson：对外提供 REST 接口、托管 static 下的静态页 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JdbcTemplate：本项目所有统计都写成 SQL，不需要 ORM -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Druid 连接池：application.properties 的 spring.datasource.type 指向它 -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid-spring-boot-starter</artifactId>
+            <version>1.1.10</version>
+        </dependency>
+
+        <!-- MySQL 驱动：8.0.33 与本机 MySQL 8.3 服务端兼容 -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.33</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>spotify-dashboard</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>UTF-8</encoding>
+                    <!-- 保留方法参数名：@RequestParam / @PathVariable 少写 name 也能绑定，
+                         本项目仍然显式写了 name，这里是双保险 -->
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+
+            <!-- 打成可执行 jar：jar 里带内嵌 Tomcat 与全部依赖 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

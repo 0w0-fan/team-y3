@@ -1,0 +1,8 @@
+new_com\spotify2\service2\TrackService2.class
+new_com\spotify2\controller2\TrackController2.class
+new_com\spotify2\common2\Result2.class
+new_com\spotify2\config2\CorsConfig2.class
+new_com\spotify2\common2\GlobalExceptionHandler2.class
+new_com\spotify2\service2\StatsService2.class
+new_com\spotify2\controller2\StatsController2.class
+new_com\spotify2\Spotify2Application.class
