@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Spotify 音乐数据分析大屏</title>
+    <script src="https://registry.npmmirror.com/echarts/5.5.0/files/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(ellipse at top, #1b2a4a 0%, #0a0f1e 60%, #050812 100%);
+            font-family: "Microsoft YaHei", sans-serif;
+            color: #c8e1ff;
+            min-height: 100vh;
+            padding: 16px 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 12px 0 18px;
+            position: relative;
+            border-bottom: 1px solid rgba(64,158,255,.25);
+            margin-bottom: 16px;
+        }
+        .header h1 {
+            font-size: 30px;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #1DB954, #4facfe, #1DB954);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+        .header::before, .header::after {
+            content: "";
+            position: absolute;
+            bottom: -1px; height: 2px; width: 30%;
+            background: linear-gradient(90deg, transparent, #1DB954, transparent);
+        }
+        .header::before { left: 0; }
+        .header::after  { right: 0; }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .kpi {
+            background: linear-gradient(135deg, rgba(29,185,84,.12), rgba(79,172,254,.06));
+            border: 1px solid rgba(29,185,84,.35);
+            border-radius: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 0 18px rgba(29,185,84,.12) inset;
+        }
+        .kpi .label { font-size: 13px; color: #8bb4e8; letter-spacing: 1px; }
+        .kpi .value {
+            font-size: 26px; font-weight: 800; margin-top: 6px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(29,185,84,.7);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .card {
+            background: rgba(13,24,48,.72);
+            border: 1px solid rgba(64,158,255,.22);
+            border-radius: 10px;
+            padding: 8px;
+            position: relative;
+        }
+        .card::before, .card::after {
+            content: ""; position: absolute; width: 14px; height: 14px;
+            border: 2px solid #1DB954;
+        }
+        .card::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+        .card::after  { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+        .chart { width: 100%; height: 300px; }
+        .span-2 { grid-column: span 2; }
+    </style>
+</head>
+<body>
+
+<div class="header"><h1>SPOTIFY 音乐数据分析可视化大屏</h1></div>
+
+<div class="kpi-row">
+    <div class="kpi"><div class="label">歌曲总数</div><div class="value" id="kpi-songs">--</div></div>
+    <div class="kpi"><div class="label">歌手总数</div><div class="value" id="kpi-artists">--</div></div>
+    <div class="kpi"><div class="label">歌单总数</div><div class="value" id="kpi-playlists">--</div></div>
+    <div class="kpi"><div class="label">流派数</div><div class="value" id="kpi-genres">--</div></div>
+    <div class="kpi"><div class="label">平均流行度</div><div class="value" id="kpi-pop">--</div></div>
+    <div class="kpi"><div class="label">平均时长(s)</div><div class="value" id="kpi-dur">--</div></div>
+</div>
+
+<div class="grid">
+    <div class="card"><div class="chart" id="c-genre"></div></div>
+    <div class="card"><div class="chart" id="c-subgenre"></div></div>
+    <div class="card"><div class="chart" id="c-popularity"></div></div>
+
+    <div class="card span-2"><div class="chart" id="c-scatter" style="height:340px"></div></div>
+    <div class="card"><div class="chart" id="c-radar" style="height:340px"></div></div>
+
+    <div class="card"><div class="chart" id="c-yearly"></div></div>
+    <div class="card"><div class="chart" id="c-artists"></div></div>
+    <div class="card"><div class="chart" id="c-playlists"></div></div>
+</div>
+
+<script>
+    const BASE = 'http://localhost:8080/api';
+    const COLOR = ['#1DB954','#4facfe','#f093fb','#f6d365','#43e97b','#ff6b6b','#a18cd1','#ffb347','#00c9ff','#9b5de5'];
+
+    async function get(url) {
+        const r = await fetch(BASE + url);
+        const j = await r.json();
+        return j.data;
+    }
+
+    function initChart(id) {
+        const c = echarts.init(document.getElementById(id));
+        window.addEventListener('resize', () => c.resize());
+        return c;
+    }
+
+    /* ---------- 通用主题片段 ---------- */
+    const AXIS_STYLE = {
+        axisLine: { lineStyle: { color: 'rgba(140,180,230,.4)' } },
+        axisLabel: { color: '#9ec2e8', fontSize: 11 },
+        splitLine: { lineStyle: { color: 'rgba(140,180,230,.1)' } }
+    };
+    const TOOLTIP = {
+        backgroundColor: 'rgba(10,20,40,.92)',
+        borderColor: '#1DB954',
+        textStyle: { color: '#dff1ff' }
+    };
+
+    /* ---------- 1. 流派占比 ---------- */
+    async function drawGenre() {
+        const data = await get('/genre-dist');
+        const chart = initChart('c-genre');
+        chart.setOption({
+            title: { text: '流派占比', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { trigger: 'item', ...TOOLTIP},
+            legend: { bottom: 0, textStyle: { color: '#9ec2e8' }, itemWidth: 10, itemHeight: 10 },
+            color: COLOR,
+            series: [{
+                type: 'pie', radius: ['40%','68%'], center: ['50%','48%'],
+                label: { color: '#c8e1ff', formatter: '{b}\n{d}%', fontSize: 11 },
+                itemStyle: { borderColor: '#0d1830', borderWidth: 2 },
+                data
+            }]
+        });
+    }
+
+    /* ---------- 2. 子流派 Top10 ---------- */
+    async function drawSubgenre() {
+        const data = await get('/subgenre-top?limit=10');
+        const chart = initChart('c-subgenre');
+        const names = data.map(d => d.name).reverse();
+        const values = data.map(d => d.value).reverse();
+        chart.setOption({
+            title: { text: '子流派 Top10', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...TOOLTIP },
+            grid: { left: 110, right: 30, top: 40, bottom: 20 },
+            xAxis: { type: 'value', ...AXIS_STYLE },
+            yAxis: { type: 'category', data: names, ...AXIS_STYLE },
+            series: [{
+                type: 'bar', data: values,
+                barWidth: 12,
+                itemStyle: {
+                    borderRadius: [0,6,6,0],
+                    color: new echarts.graphic.LinearGradient(0,0,1,0,[
+                        { offset: 0, color: '#1DB954' }, { offset: 1, color: '#4facfe' }
+                    ])
+                },
+                label: { show: true, position: 'right', color: '#9ec2e8', fontSize: 11 }
+            }]
+        });
+    }
+
+    /* ---------- 3. 流行度分布 ---------- */
+    async function drawPopularity() {
+        const data = await get('/popularity-dist');
+        const chart = initChart('c-popularity');
+        chart.setOption({
+            title: { text: '流行度分段分布', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...TOOLTIP },
+            grid: { left: 40, right: 20, top: 40, bottom: 30 },
+            xAxis: { type: 'category', data: data.map(d=>d.bucket), ...AXIS_STYLE },
+            yAxis: { type: 'value', ...AXIS_STYLE },
+            series: [{
+                type: 'bar', data: data.map(d=>d.value),
+                barWidth: '55%',
+                itemStyle: {
+                    borderRadius: [6,6,0,0],
+                    color: new echarts.graphic.LinearGradient(0,0,0,1,[
+                        { offset: 0, color: '#4facfe' }, { offset: 1, color: '#1DB954' }
+                    ])
+                }
+            }]
+        });
+    }
+
+    /* ---------- 4. 能量-舞蹈性散点 ---------- */
+    async function drawScatter() {
+        const rows = await get('/scatter');
+        const groups = {};
+        rows.forEach(r => (groups[r.genre] = groups[r.genre] || []).push([r.x, r.y, r.p]));
+        const series = Object.keys(groups).map((g, i) => ({
+            name: g, type: 'scatter', symbolSize: 5,
+            itemStyle: { color: COLOR[i % COLOR.length], opacity: 0.75 },
+            data: groups[g]
+        }));
+        const chart = initChart('c-scatter');
+        chart.setOption({
+            title: { text: '能量 vs 舞蹈性（按流派）', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: {
+                ...TOOLTIP,
+                formatter: p => `${p.seriesName}<br/>舞蹈性: ${p.data[0]}<br/>能量: ${p.data[1]}<br/>流行度: ${p.data[2]}`
+            },
+            legend: { bottom: 0, textStyle: { color: '#9ec2e8' }, itemWidth: 10, itemHeight: 10 },
+            grid: { left: 50, right: 30, top: 45, bottom: 45 },
+            xAxis: { type: 'value', name: 'danceability', ...AXIS_STYLE,
+                nameTextStyle: { color: '#9ec2e8' } },
+            yAxis: { type: 'value', name: 'energy', ...AXIS_STYLE,
+                nameTextStyle: { color: '#9ec2e8' } },
+            series
+        });
+    }
+
+    /* ---------- 5. 流派音频特征雷达 ---------- */
+    async function drawRadar() {
+        const rows = await get('/genre-radar');
+        const dims = [
+            { key: 'danceability', name: '舞蹈性' },
+            { key: 'energy',       name: '能量'   },
+            { key: 'valence',      name: '情绪'   },
+            { key: 'acousticness', name: '原声'   },
+            { key: 'speechiness',  name: '说唱'   },
+            { key: 'liveness',     name: '现场感' }
+        ];
+        const indicator = dims.map(d => ({ name: d.name, max: 1 }));
+        const series = rows.map((r, i) => ({
+            type: 'radar',
+            name: r.genre,
+            symbolSize: 4,
+            lineStyle: { color: COLOR[i % COLOR.length], width: 2 },
+            itemStyle: { color: COLOR[i % COLOR.length] },
+            areaStyle: { color: COLOR[i % COLOR.length], opacity: 0.12 },
+            data: [{ value: dims.map(d => Number(r[d.key])), name: r.genre }]
+        }));
+
+        const chart = initChart('c-radar');
+        chart.setOption({
+            title: { text: '各流派音频特征均值', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { ...TOOLTIP },
+            legend: { bottom: 0, textStyle: { color: '#9ec2e8' }, itemWidth: 10, itemHeight: 10 },
+            radar: {
+                indicator,
+                center: ['50%','50%'],
+                radius: '60%',
+                axisName: { color: '#9ec2e8', fontSize: 11 },
+                splitLine: { lineStyle: { color: 'rgba(140,180,230,.2)' } },
+                splitArea: { areaStyle: { color: ['rgba(20,40,80,.2)','rgba(20,40,80,.05)'] } },
+                axisLine: { lineStyle: { color: 'rgba(140,180,230,.2)' } }
+            },
+            series
+        });
+    }
+
+    /* ---------- 6. 年度趋势 ---------- */
+    async function drawYearly() {
+        const data = await get('/yearly-trend');
+        const chart = initChart('c-yearly');
+        chart.setOption({
+            title: { text: '各年份发布歌曲数趋势', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { trigger: 'axis', ...TOOLTIP },
+            grid: { left: 50, right: 20, top: 45, bottom: 30 },
+            xAxis: { type: 'category', data: data.map(d=>d.year), ...AXIS_STYLE },
+            yAxis: { type: 'value', ...AXIS_STYLE },
+            series: [{
+                type: 'line', smooth: true, showSymbol: false,
+                data: data.map(d=>d.value),
+                lineStyle: { width: 3, color: '#4facfe' },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0,0,0,1,[
+                        { offset: 0, color: 'rgba(79,172,254,.5)' },
+                        { offset: 1, color: 'rgba(79,172,254,0)' }
+                    ])
+                }
+            }]
+        });
+    }
+
+    /* ---------- 7. 热门歌手 ---------- */
+    async function drawArtists() {
+        const data = await get('/top-artists?limit=10');
+        const chart = initChart('c-artists');
+        const names = data.map(d => d.name.length > 16 ? d.name.slice(0,16)+'…' : d.name).reverse();
+        const values = data.map(d => d.value).reverse();
+        chart.setOption({
+            title: { text: '热门歌手 Top10', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...TOOLTIP },
+            grid: { left: 120, right: 30, top: 45, bottom: 20 },
+            xAxis: { type: 'value', ...AXIS_STYLE },
+            yAxis: { type: 'category', data: names, ...AXIS_STYLE },
+            series: [{
+                type: 'bar', data: values, barWidth: 12,
+                itemStyle: {
+                    borderRadius: [0,6,6,0],
+                    color: new echarts.graphic.LinearGradient(0,0,1,0,[
+                        { offset: 0, color: '#f093fb' }, { offset: 1, color: '#f5576c' }
+                    ])
+                },
+                label: { show: true, position: 'right', color: '#9ec2e8', fontSize: 11 }
+            }]
+        });
+    }
+
+    /* ---------- 8. 热门歌单 ---------- */
+    async function drawPlaylists() {
+        const data = await get('/top-playlists?limit=8');
+        const chart = initChart('c-playlists');
+        chart.setOption({
+            title: { text: '热门歌单 Top8', left: 'center', textStyle: { color: '#dff1ff', fontSize: 14 } },
+            tooltip: {
+                trigger: 'item',
+                ...TOOLTIP,
+                formatter: p => `${p.name}<br/>歌曲数: ${p.value}<br/>占比: ${p.percent}%`
+            },
+            legend: {
+                bottom: 0, textStyle: { color: '#9ec2e8', fontSize: 10 },
+                itemWidth: 8, itemHeight: 8, type: 'scroll'
+            },
+            color: COLOR,
+            series: [{
+                type: 'pie', radius: ['35%','62%'], center: ['50%','46%'],
+                label: { color: '#c8e1ff', fontSize: 10, formatter: '{b}\n{c}' },
+                itemStyle: { borderColor: '#0d1830', borderWidth: 2 },
+                data: data.map(d => ({
+                    name: d.name.length > 20 ? d.name.slice(0,20)+'…' : d.name,
+                    value: d.value
+                }))
+            }]
+        });
+    }
+
+    /* ---------- KPI ---------- */
+    async function drawKpi() {
+        const d = await get('/overview');
+        document.getElementById('kpi-songs').textContent     = d.totalSongs;
+        document.getElementById('kpi-artists').textContent   = d.totalArtists;
+        document.getElementById('kpi-playlists').textContent = d.totalPlaylists;
+        document.getElementById('kpi-genres').textContent    = d.totalGenres;
+        document.getElementById('kpi-pop').textContent       = d.avgPopularity;
+        document.getElementById('kpi-dur').textContent       = d.avgDuration;
+    }
+
+    /* ---------- 启动 ---------- */
+    (async function init() {
+        try {
+            await Promise.all([
+                drawKpi(),
+                drawGenre(),
+                drawSubgenre(),
+                drawPopularity(),
+                drawScatter(),
+                drawRadar(),
+                drawYearly(),
+                drawArtists(),
+                drawPlaylists()
+            ]);
+        } catch (e) {
+            console.error('数据加载失败', e);
+            alert('数据加载失败：' + e.message + '\n请确认后端已启动在 http://localhost:8080');
+        }
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springboot.demo.mapper.ProductMapper">
+  <resultMap id="BaseResultMap" type="org.springboot.demo.pojo.Product">
+    <id column="id" jdbcType="INTEGER" property="id" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="brand" jdbcType="VARCHAR" property="brand" />
+    <result column="description" jdbcType="VARCHAR" property="description" />
+    <result column="price" jdbcType="DECIMAL" property="price" />
+    <result column="stock" jdbcType="INTEGER" property="stock" />
+    <result column="sales" jdbcType="INTEGER" property="sales" />
+    <result column="category_id" jdbcType="INTEGER" property="categoryId" />
+    <result column="image_url" jdbcType="VARCHAR" property="imageUrl" />
+    <result column="status" jdbcType="TINYINT" property="status" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+  </resultMap>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+    delete from t_product
+    where id = #{id,jdbcType=INTEGER}
+  </delete>
+<!--  <insert id="insert" parameterType="org.springboot.demo.pojo.Product">-->
+<!--    <selectKey keyProperty="id" order="AFTER" resultType="java.lang.Integer">-->
+<!--      SELECT LAST_INSERT_ID()-->
+<!--    </selectKey>-->
+<!--    insert into t_product (name, brand, description, -->
+<!--      price, stock, sales, -->
+<!--      category_id, image_url, status, -->
+<!--      create_time, update_time)-->
+<!--    values (#{name,jdbcType=VARCHAR}, #{brand,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR}, -->
+<!--      #{price,jdbcType=DECIMAL}, #{stock,jdbcType=INTEGER}, #{sales,jdbcType=INTEGER}, -->
+<!--      #{categoryId,jdbcType=INTEGER}, #{imageUrl,jdbcType=VARCHAR}, #{status,jdbcType=TINYINT}, -->
+<!--      #{createTime,jdbcType=TIMESTAMP}, #{updateTime,jdbcType=TIMESTAMP})-->
+<!--  </insert>-->
+<!--  <update id="updateByPrimaryKey" parameterType="org.springboot.demo.pojo.Product">-->
+<!--    update t_product-->
+<!--    set name = #{name,jdbcType=VARCHAR},-->
+<!--      brand = #{brand,jdbcType=VARCHAR},-->
+<!--      description = #{description,jdbcType=VARCHAR},-->
+<!--      price = #{price,jdbcType=DECIMAL},-->
+<!--      stock = #{stock,jdbcType=INTEGER},-->
+<!--      sales = #{sales,jdbcType=INTEGER},-->
+<!--      category_id = #{categoryId,jdbcType=INTEGER},-->
+<!--      image_url = #{imageUrl,jdbcType=VARCHAR},-->
+<!--      status = #{status,jdbcType=TINYINT},-->
+<!--      create_time = #{createTime,jdbcType=TIMESTAMP},-->
+<!--      update_time = #{updateTime,jdbcType=TIMESTAMP}-->
+<!--    where id = #{id,jdbcType=INTEGER}-->
+<!--  </update>-->
+  <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select id, name, brand, description, price, stock, sales, category_id, image_url, 
+    status, create_time, update_time
+    from t_product
+    where id = #{id,jdbcType=INTEGER}
+  </select>
+  <select id="selectAll" resultMap="BaseResultMap">
+    select id, name, brand, description, price, stock, sales, category_id, image_url, 
+    status, create_time, update_time
+    from t_product
+  </select>
+</mapper>

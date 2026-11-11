@@ -1,0 +1,38 @@
+# =====================================================================
+# 方向六 · 响度战争与音乐物理属性变迁史
+#
+# 说明：本文件是模块自用的配置副本。
+# 你当前的 Demo 工程实际生效的是 src/main/resources/application.properties，
+# 两者保持一致即可；如果只想跑方向六，可以把本文件复制成
+# src/main/resources/application.yml（并删除或重命名原来的 .properties）。
+# =====================================================================
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: spotify-time-analysis
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/spotify_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    type: com.alibaba.druid.pool.DruidDataSource
+    initialSize: 5
+    minIdle: 5
+    maxActive: 20
+  jackson:
+    default-property-inclusion: non_null
+
+## 方向六只用到 JdbcTemplate，不需要 MyBatis / JPA；如需保留请自行开启
+#mybatis-plus:
+#  configuration:
+#    map-underscore-to-camel-case: true
+#
+#logging:
+#  level:
+#    org.springboot.demo.spotify2: info

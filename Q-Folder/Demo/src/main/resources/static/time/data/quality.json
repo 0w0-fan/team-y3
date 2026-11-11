@@ -1,0 +1,115 @@
+{
+ "source_rows": 32833,
+ "source_columns": 29,
+ "missing_rate_pct": {
+  "release_month": 5.65
+ },
+ "genre_conflict_tracks": 1687,
+ "unique_tracks": 28356,
+ "cross_playlist_duplicates": 4477,
+ "max_playlist_coverage": 10,
+ "clean_rows": 28351,
+ "removed_total": 4482,
+ "removed_by_rule": {
+  "时长越界 (<30s 或 >15min)": 2,
+  "响度越界 (静音/削波失真)": 3
+ },
+ "distribution_before_after": {
+  "duration_sec": {
+   "before": {
+    "min": 4.0,
+    "p50": 216.0,
+    "max": 517.81,
+    "std": 59.833
+   },
+   "after": {
+    "min": 31.429,
+    "p50": 216.933,
+    "max": 517.81,
+    "std": 61.056
+   }
+  },
+  "tempo": {
+   "before": {
+    "min": 0.0,
+    "p50": 121.984,
+    "max": 239.44,
+    "std": 26.903
+   },
+   "after": {
+    "min": 35.477,
+    "p50": 121.993,
+    "max": 239.44,
+    "std": 26.945
+   }
+  },
+  "loudness": {
+   "before": {
+    "min": -46.448,
+    "p50": -6.166,
+    "max": 1.275,
+    "std": 2.988
+   },
+   "after": {
+    "min": -36.624,
+    "p50": -6.261,
+    "max": 0.642,
+    "std": 3.024
+   }
+  },
+  "track_popularity": {
+   "before": {
+    "min": 0.0,
+    "p50": 45.0,
+    "max": 100.0,
+    "std": 24.984
+   },
+   "after": {
+    "min": 0,
+    "p50": 42.0,
+    "max": 100,
+    "std": 23.7
+   }
+  },
+  "energy": {
+   "before": {
+    "min": 0.0,
+    "p50": 0.721,
+    "max": 1.0,
+    "std": 0.181
+   },
+   "after": {
+    "min": 0.0,
+    "p50": 0.722,
+    "max": 1.0,
+    "std": 0.183
+   }
+  },
+  "valence": {
+   "before": {
+    "min": 0.0,
+    "p50": 0.512,
+    "max": 0.991,
+    "std": 0.233
+   },
+   "after": {
+    "min": 0.0,
+    "p50": 0.512,
+    "max": 0.991,
+    "std": 0.234
+   }
+  }
+ },
+ "year_range": [
+  1957,
+  2020
+ ],
+ "genre_counts": {
+  "edm": 5377,
+  "rap": 5067,
+  "r&b": 4635,
+  "pop": 4544,
+  "latin": 4428,
+  "rock": 4300
+ }
+}

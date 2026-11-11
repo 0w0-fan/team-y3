@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--文件与类的的映射-->
+<mapper namespace="org.springboot.demo.mapper.ArticleMapper">
+    <update id="updateArticle" parameterType="Article" >
+        UPDATE t_article
+        <set>
+            <!--动态的sql语句。有title就改title；有content就改content-->
+            <if test="title !=null and title !=''">
+                title=#{title},
+            </if>
+            <if test="content !=null and content !=''">
+                content=#{content}
+            </if>
+        </set>
+        WHERE id=#{id}
+    </update>
+
+    <!--sql片段和方法的映射：方法名与片段的id完全一致-->
+    <select id="selectArticle" resultMap="articleWithComment">
+        SELECT a.*,c.id c_id,c.content c_content,c.author
+        FROM t_article a,t_comment c
+        WHERE a.id=c.a_id AND a.id=#{id}
+    </select>
+    <resultMap id="articleWithComment" type="Article">          <!--type：返回类型-->
+        <id property="id" column="id" />                        <!--property：对象中的属性名-->
+        <result property="title" column="title" />              <!--column：数据库中的字段名-->
+        <result property="content" column="content" />
+        <collection property="commentList" ofType="Comment">    <!--保存一个集合，返回的类型：Comment类型-->
+            <id property="id" column="c_id" />                  <!--c_id映射成id，c_id与上面的SELECT c_id一致-->
+            <result property="content" column="c_content" />
+            <result property="author" column="author" />
+        </collection>
+    </resultMap>
+</mapper>

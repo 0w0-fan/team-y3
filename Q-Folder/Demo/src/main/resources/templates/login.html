@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>登录页</title>
+</head>
+<body>
+    <p th:style="${style}" th:text="${what}"></p>
+    <div th:each="user:${usersList}">
+        账号：<input th:value="${user.username}"/>
+        密码：<input th:value="${user.password}"/>
+    </div>
+</body>
+</html>

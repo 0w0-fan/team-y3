@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.springboot.demo.mapper.ProductExtMapper">
+
+    <!-- 继承逆向生成的BaseResultMap，再通过<association>封装一对一的分类对象 -->
+    <resultMap id="ProductWithCategory" type="ProductVO"
+               extends="org.springboot.demo.mapper.ProductMapper.BaseResultMap">
+        <association property="category" javaType="Category">
+            <id property="id" column="c_id"/>
+            <result property="name" column="c_name"/>
+        </association>
+    </resultMap>
+
+    <!-- 多条件动态查询：条件为空时自动忽略 -->
+    <select id="searchProduct" resultMap="ProductWithCategory">
+        SELECT p.*, c.id AS c_id, c.name AS c_name
+        FROM t_product p
+        LEFT JOIN t_category c ON p.category_id = c.id
+        <where>
+            <if test="name != null and name != ''">
+                AND p.name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="minPrice != null">
+                AND p.price &gt;= #{minPrice}
+            </if>
+            <if test="maxPrice != null">
+                AND p.price &lt;= #{maxPrice}
+            </if>
+            <if test="categoryId != null">
+                AND p.category_id = #{categoryId}
+            </if>
+        </where>
+        ORDER BY p.id
+    </select>
+
+    <!-- 批量上架/下架：UPDATE ... WHERE id IN (1,2,3) -->
+    <update id="updateStatusBatch">
+        UPDATE t_product SET status = #{status}
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 动态修改：只更新传入的非空字段，<set>会去掉末尾多余的逗号 -->
+    <update id="updateSelective" parameterType="Product">
+        UPDATE t_product
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="stock != null">stock = #{stock},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+</mapper>

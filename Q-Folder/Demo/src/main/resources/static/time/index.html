@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方向六 · 响度战争与音乐物理属性变迁史</title>
+<link rel="stylesheet" href="css/screen.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ======================= 顶部 ======================= -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="badge">方向六</span>
+      <div class="titles">
+        <h1>“响度战争”与音乐物理属性变迁史</h1>
+        <p>Spotify 曲目 · 时间戳 × BPM × Duration × Loudness　|　1957 – 2020　|　28,351 首有效曲目</p>
+      </div>
+    </div>
+    <div class="topright">
+      <div class="status" id="apiStatus">
+        <i class="dot"></i><span id="apiStatusText">正在连接接口…</span>
+      </div>
+      <div class="clock">
+        <span id="clockTime">--:--:--</span>
+        <small id="clockDate">----/--/--</small>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================= 交互控制栏 ======================= -->
+  <section class="toolbar">
+    <div class="ctl">
+      <span class="ctl-label">年代区间</span>
+      <div class="range-dual" id="rangeDual">
+        <div class="range-track"><span class="range-fill" id="rangeFill"></span></div>
+        <input type="range" id="rangeFrom" min="1955" max="2020" step="5" value="1955" aria-label="起始年代">
+        <input type="range" id="rangeTo" min="1955" max="2020" step="5" value="2020" aria-label="结束年代">
+      </div>
+      <b class="range-text" id="rangeText">1955 – 2020</b>
+    </div>
+
+    <button class="ctl-btn play" id="btnPlay" title="按年代自动回放（空格）">
+      <span class="tri"></span><span id="btnPlayText">回放</span>
+    </button>
+
+    <div class="ctl">
+      <span class="ctl-label">中位数口径</span>
+      <div class="seg" id="segWeight">
+        <button type="button" data-w="0" class="on">等权</button>
+        <button type="button" data-w="1">歌单加权</button>
+      </div>
+    </div>
+
+    <div class="ctl hint-ctl">
+      <span class="hint" id="filterHint">拖动滑块或点击曲风行可交叉筛选</span>
+    </div>
+
+    <div class="ctl right">
+      <button class="ctl-btn" id="btnReset" title="重置全部筛选（R）">重置</button>
+      <button class="ctl-btn" id="btnFull" title="全屏演示（F）">全屏</button>
+    </div>
+  </section>
+
+  <!-- ======================= KPI ======================= -->
+  <section class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">有效曲目总数</div>
+      <div class="kpi-value"><span id="kpiTracks">—</span><i>首</i></div>
+      <div class="kpi-note" id="kpiTracksNote">清洗前 32,833 条记录</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">平均时长</div>
+      <div class="kpi-value"><span id="kpiDuration">—</span><i>分钟</i></div>
+      <div class="kpi-note" id="kpiDurationNote">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">平均响度</div>
+      <div class="kpi-value"><span id="kpiLoudness">—</span><i>dBFS</i></div>
+      <div class="kpi-note" id="kpiLoudnessNote">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">短歌占比 &lt; 2′30″</div>
+      <div class="kpi-value"><span id="kpiShort">—</span><i>%</i></div>
+      <div class="kpi-note" id="kpiShortNote">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">平均 BPM</div>
+      <div class="kpi-value"><span id="kpiTempo">—</span><i>BPM</i></div>
+      <div class="kpi-note" id="kpiTempoNote">—</div>
+    </div>
+  </section>
+
+  <!-- ======================= 图表面板区 ======================= -->
+  <section class="board">
+
+    <!-- ★ 核心图：曲风 × 年代 响度矩阵 -->
+    <div class="panel core" data-chart="matrix">
+      <div class="panel-head">
+        <h2><i class="gold"></i>核心对比 · 谁在推响，谁没参战<span class="core-badge">CORE</span></h2>
+        <div class="head-tools">
+          <span class="tag" id="mxTag">—</span>
+          <button class="zoom-btn" data-chart="matrix" title="放大该图表">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body mx-body">
+        <div class="chart" id="chartMatrix"></div>
+        <div class="mx-legend" id="mxLegend">
+          <span id="mxLo">−11.5 dB 轻</span>
+          <div class="mx-scale"></div>
+          <span id="mxHi">−4.5 dB 响</span>
+        </div>
+      </div>
+      <div class="panel-foot" id="mxFoot">格内数字＝该曲风在该十年的平均响度（dBFS），越暖越响</div>
+    </div>
+
+    <!-- 响度战争逐年趋势 -->
+    <div class="panel" data-chart="loudness">
+      <div class="panel-head">
+        <h2><i></i>“响度战争” · 逐年走势</h2>
+        <div class="head-tools">
+          <span class="tag warn" id="loudTag">dBFS</span>
+          <button class="zoom-btn" data-chart="loudness" title="放大该图表">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body"><div class="chart" id="chartLoudness"></div></div>
+      <div class="panel-foot" id="loudFoot">实线＝年均值，两条虚线＝P10 / P90 分位边界</div>
+    </div>
+
+    <!-- 时长演化 -->
+    <div class="panel" data-chart="duration">
+      <div class="panel-head">
+        <h2><i></i>时长演化 · 五年分组</h2>
+        <div class="head-tools">
+          <span class="tag" id="durTag">Duration_min</span>
+          <button class="zoom-btn" data-chart="duration" title="放大该图表">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body"><div class="chart" id="chartDuration"></div></div>
+      <div class="panel-foot" id="durFoot">箱体＝P25–P75，须＝min/max，◆＝均值</div>
+    </div>
+
+    <!-- BPM 分布 -->
+    <div class="panel" data-chart="bpm">
+      <div class="panel-head">
+        <h2><i></i>BPM 年代分布</h2>
+        <div class="head-tools">
+          <span class="tag ref">120 BPM</span>
+          <button class="zoom-btn" data-chart="bpm" title="放大该图表">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body"><div class="chart" id="chartBpm"></div></div>
+      <div class="panel-foot" id="bpmFoot">宽度＝该 BPM 区间的相对密度</div>
+    </div>
+
+    <!-- 流行度：四象限散点 -->
+    <div class="panel" data-chart="scatter">
+      <div class="panel-head">
+        <h2><i></i>“短且响”更受欢迎吗</h2>
+        <div class="head-tools">
+          <select class="mini-select" id="scatterGenre" title="按曲风筛选散点">
+            <option value="">全部曲风</option>
+          </select>
+          <span class="tag" id="scatterTag">n = —</span>
+          <button class="zoom-btn" data-chart="scatter" title="放大该图表">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body"><div class="chart" id="chartScatter"></div></div>
+      <div class="panel-foot" id="scatterFoot">点＝单曲（抽样），按四象限着色</div>
+    </div>
+
+    <!-- 结论 -->
+    <div class="panel insight" data-chart="insight">
+      <div class="panel-head">
+        <h2><i></i>结论与质量</h2>
+        <div class="head-tools">
+          <span class="tag ok">Insight</span>
+          <button class="zoom-btn" data-chart="insight" title="放大该面板">
+            <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 1.5H1.5V4.5M7.5 1.5H10.5V4.5M4.5 10.5H1.5V7.5M7.5 10.5H10.5V7.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-body scroll">
+        <ul class="findings" id="findings"></ul>
+
+        <div class="sub-title">曲风画像 · 平均响度<span class="hint-inline">点击筛选</span></div>
+        <div class="bars" id="genreBars"></div>
+
+        <div class="sub-title">清洗流水线</div>
+        <div class="funnel" id="funnel"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- 放大图表时的遮罩：必须放在 .app 内部，否则会被 .app 的层叠上下文压住 -->
+  <div class="backdrop" id="backdrop"></div>
+
+</div>
+
+<!-- 图表引擎由 js/screen.js 按“先 CDN、失败回退本地轻量渲染器”的顺序加载 -->
+<script src="js/screen.js"></script>
+</body>
+</html>
