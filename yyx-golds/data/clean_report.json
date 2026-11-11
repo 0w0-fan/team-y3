@@ -1,0 +1,831 @@
+{
+  "log": {
+    "raw_rows": 32833,
+    "clean_rows": 32833,
+    "dropped_rows": 0,
+    "flag_counter": {
+      "meta_missing": 5,
+      "short_track": 2,
+      "tempo_missing": 1
+    },
+    "genres": {
+      "pop": 5507,
+      "rap": 5746,
+      "rock": 4951,
+      "latin": 5155,
+      "r&b": 5431,
+      "edm": 6043
+    },
+    "subgenre_count": 24,
+    "distinct_track_id": 28356,
+    "date_precision": {
+      "day": 30947,
+      "year": 1855,
+      "month": 31
+    },
+    "year_range": [
+      1957,
+      2020
+    ]
+  },
+  "summary": [
+    {
+      "genre": "edm",
+      "songCount": 6043,
+      "share": 18.41,
+      "avgPopularity": 34.83,
+      "medianPopularity": 36.0
+    },
+    {
+      "genre": "rap",
+      "songCount": 5746,
+      "share": 17.5,
+      "avgPopularity": 43.22,
+      "medianPopularity": 47.0
+    },
+    {
+      "genre": "pop",
+      "songCount": 5507,
+      "share": 16.77,
+      "avgPopularity": 47.74,
+      "medianPopularity": 52.0
+    },
+    {
+      "genre": "r&b",
+      "songCount": 5431,
+      "share": 16.54,
+      "avgPopularity": 41.22,
+      "medianPopularity": 44.0
+    },
+    {
+      "genre": "latin",
+      "songCount": 5155,
+      "share": 15.7,
+      "avgPopularity": 47.03,
+      "medianPopularity": 50.0
+    },
+    {
+      "genre": "rock",
+      "songCount": 4951,
+      "share": 15.08,
+      "avgPopularity": 41.73,
+      "medianPopularity": 46.0
+    }
+  ],
+  "subgenreTop15": [
+    {
+      "genre": "pop",
+      "subgenre": "post-teen pop",
+      "songCount": 1129,
+      "avgPopularity": 56.83,
+      "rank": 1,
+      "inTop15": true
+    },
+    {
+      "genre": "rock",
+      "subgenre": "permanent wave",
+      "songCount": 1105,
+      "avgPopularity": 54.0,
+      "rank": 2,
+      "inTop15": true
+    },
+    {
+      "genre": "r&b",
+      "subgenre": "hip pop",
+      "songCount": 1256,
+      "avgPopularity": 53.84,
+      "rank": 3,
+      "inTop15": true
+    },
+    {
+      "genre": "rap",
+      "subgenre": "hip hop",
+      "songCount": 1322,
+      "avgPopularity": 53.77,
+      "rank": 4,
+      "inTop15": true
+    },
+    {
+      "genre": "latin",
+      "subgenre": "reggaeton",
+      "songCount": 949,
+      "avgPopularity": 52.87,
+      "rank": 5,
+      "inTop15": true
+    },
+    {
+      "genre": "pop",
+      "subgenre": "dance pop",
+      "songCount": 1298,
+      "avgPopularity": 52.08,
+      "rank": 6,
+      "inTop15": true
+    },
+    {
+      "genre": "latin",
+      "subgenre": "latin pop",
+      "songCount": 1262,
+      "avgPopularity": 51.1,
+      "rank": 7,
+      "inTop15": true
+    },
+    {
+      "genre": "r&b",
+      "subgenre": "urban contemporary",
+      "songCount": 1405,
+      "avgPopularity": 50.52,
+      "rank": 8,
+      "inTop15": true
+    },
+    {
+      "genre": "rap",
+      "subgenre": "trap",
+      "songCount": 1291,
+      "avgPopularity": 50.31,
+      "rank": 9,
+      "inTop15": true
+    },
+    {
+      "genre": "edm",
+      "subgenre": "pop edm",
+      "songCount": 1517,
+      "avgPopularity": 45.69,
+      "rank": 10,
+      "inTop15": true
+    },
+    {
+      "genre": "latin",
+      "subgenre": "latin hip hop",
+      "songCount": 1656,
+      "avgPopularity": 43.45,
+      "rank": 11,
+      "inTop15": true
+    },
+    {
+      "genre": "latin",
+      "subgenre": "tropical",
+      "songCount": 1288,
+      "avgPopularity": 43.33,
+      "rank": 12,
+      "inTop15": true
+    },
+    {
+      "genre": "pop",
+      "subgenre": "electropop",
+      "songCount": 1408,
+      "avgPopularity": 42.73,
+      "rank": 13,
+      "inTop15": true
+    },
+    {
+      "genre": "pop",
+      "subgenre": "indie poptimism",
+      "songCount": 1672,
+      "avgPopularity": 42.48,
+      "rank": 14,
+      "inTop15": true
+    },
+    {
+      "genre": "rock",
+      "subgenre": "classic rock",
+      "songCount": 1296,
+      "avgPopularity": 40.81,
+      "rank": 15,
+      "inTop15": true
+    }
+  ],
+  "trend": {
+    "years": [
+      1990,
+      1991,
+      1992,
+      1993,
+      1994,
+      1995,
+      1996,
+      1997,
+      1998,
+      1999,
+      2000,
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019
+    ],
+    "series": [
+      {
+        "genre": "pop",
+        "values": [
+          16,
+          7,
+          6,
+          7,
+          15,
+          13,
+          17,
+          12,
+          13,
+          18,
+          9,
+          33,
+          23,
+          28,
+          24,
+          22,
+          50,
+          50,
+          112,
+          95,
+          173,
+          144,
+          176,
+          227,
+          316,
+          479,
+          531,
+          505,
+          704,
+          1373
+        ],
+        "total": 5198
+      },
+      {
+        "genre": "rap",
+        "values": [
+          14,
+          25,
+          41,
+          72,
+          80,
+          75,
+          95,
+          49,
+          111,
+          89,
+          54,
+          59,
+          54,
+          98,
+          90,
+          126,
+          101,
+          88,
+          75,
+          58,
+          74,
+          80,
+          117,
+          93,
+          175,
+          235,
+          295,
+          463,
+          705,
+          1824
+        ],
+        "total": 5515
+      },
+      {
+        "genre": "rock",
+        "values": [
+          46,
+          80,
+          39,
+          51,
+          58,
+          48,
+          35,
+          80,
+          72,
+          67,
+          68,
+          94,
+          59,
+          72,
+          99,
+          176,
+          101,
+          115,
+          142,
+          88,
+          120,
+          97,
+          63,
+          84,
+          105,
+          79,
+          77,
+          116,
+          129,
+          577
+        ],
+        "total": 3037
+      },
+      {
+        "genre": "latin",
+        "values": [
+          17,
+          12,
+          3,
+          13,
+          11,
+          18,
+          13,
+          23,
+          21,
+          26,
+          14,
+          26,
+          19,
+          47,
+          76,
+          69,
+          92,
+          101,
+          119,
+          118,
+          126,
+          84,
+          133,
+          123,
+          165,
+          277,
+          375,
+          396,
+          567,
+          1879
+        ],
+        "total": 4963
+      },
+      {
+        "genre": "r&b",
+        "values": [
+          77,
+          84,
+          97,
+          80,
+          72,
+          64,
+          89,
+          89,
+          65,
+          75,
+          101,
+          97,
+          100,
+          103,
+          93,
+          107,
+          85,
+          87,
+          131,
+          69,
+          85,
+          125,
+          127,
+          116,
+          199,
+          247,
+          351,
+          464,
+          452,
+          1107
+        ],
+        "total": 5038
+      },
+      {
+        "genre": "edm",
+        "values": [
+          1,
+          1,
+          0,
+          1,
+          1,
+          1,
+          1,
+          0,
+          1,
+          3,
+          4,
+          3,
+          4,
+          5,
+          3,
+          8,
+          16,
+          29,
+          43,
+          45,
+          37,
+          74,
+          170,
+          313,
+          564,
+          462,
+          498,
+          486,
+          755,
+          2321
+        ],
+        "total": 5850
+      }
+    ],
+    "grandTotal": 29601
+  },
+  "radar": {
+    "features": [
+      "danceability",
+      "energy",
+      "speechiness",
+      "acousticness",
+      "instrumentalness",
+      "liveness",
+      "valence"
+    ],
+    "max": 100,
+    "series": [
+      {
+        "genre": "pop",
+        "values": [
+          60.0,
+          52.0,
+          11.7,
+          50.1,
+          16.3,
+          4.3,
+          50.2
+        ],
+        "raw": {
+          "danceability": 0.6393,
+          "energy": 0.701,
+          "speechiness": 0.074,
+          "acousticness": 0.1708,
+          "instrumentalness": 0.0599,
+          "liveness": 0.1768,
+          "valence": 0.5035
+        }
+      },
+      {
+        "genre": "rap",
+        "values": [
+          100.0,
+          28.3,
+          100.0,
+          62.2,
+          24.8,
+          44.8,
+          51.0
+        ],
+        "raw": {
+          "danceability": 0.7184,
+          "energy": 0.6507,
+          "speechiness": 0.1975,
+          "acousticness": 0.1925,
+          "instrumentalness": 0.076,
+          "liveness": 0.1917,
+          "valence": 0.5051
+        }
+      },
+      {
+        "genre": "rock",
+        "values": [
+          0.0,
+          67.1,
+          0.0,
+          35.7,
+          17.7,
+          76.2,
+          66.7
+        ],
+        "raw": {
+          "danceability": 0.5205,
+          "energy": 0.7328,
+          "speechiness": 0.0577,
+          "acousticness": 0.1452,
+          "instrumentalness": 0.0624,
+          "liveness": 0.2031,
+          "valence": 0.5374
+        }
+      },
+      {
+        "genre": "latin",
+        "values": [
+          97.4,
+          55.5,
+          32.2,
+          72.5,
+          8.2,
+          14.6,
+          100.0
+        ],
+        "raw": {
+          "danceability": 0.7133,
+          "energy": 0.7083,
+          "speechiness": 0.1027,
+          "acousticness": 0.2109,
+          "instrumentalness": 0.0444,
+          "liveness": 0.1806,
+          "valence": 0.6055
+        }
+      },
+      {
+        "genre": "r&b",
+        "values": [
+          75.6,
+          0.0,
+          42.3,
+          100.0,
+          0.0,
+          0.0,
+          63.7
+        ],
+        "raw": {
+          "danceability": 0.6702,
+          "energy": 0.5909,
+          "speechiness": 0.1168,
+          "acousticness": 0.2599,
+          "instrumentalness": 0.0289,
+          "liveness": 0.1753,
+          "valence": 0.5312
+        }
+      },
+      {
+        "genre": "edm",
+        "values": [
+          68.0,
+          100.0,
+          20.7,
+          0.0,
+          100.0,
+          100.0,
+          0.0
+        ],
+        "raw": {
+          "danceability": 0.655,
+          "energy": 0.8025,
+          "speechiness": 0.0867,
+          "acousticness": 0.0815,
+          "instrumentalness": 0.2186,
+          "liveness": 0.2119,
+          "valence": 0.4007
+        }
+      }
+    ]
+  },
+  "bins": [
+    {
+      "label": "0-20",
+      "total": 7429,
+      "counts": {
+        "pop": 1002,
+        "rap": 1121,
+        "rock": 1213,
+        "latin": 974,
+        "r&b": 1373,
+        "edm": 1746
+      },
+      "shares": {
+        "pop": 13.49,
+        "rap": 15.09,
+        "rock": 16.33,
+        "latin": 13.11,
+        "r&b": 18.48,
+        "edm": 23.5
+      }
+    },
+    {
+      "label": "21-40",
+      "total": 6745,
+      "counts": {
+        "pop": 982,
+        "rap": 1061,
+        "rock": 914,
+        "latin": 834,
+        "r&b": 1161,
+        "edm": 1793
+      },
+      "shares": {
+        "pop": 14.56,
+        "rap": 15.73,
+        "rock": 13.55,
+        "latin": 12.36,
+        "r&b": 17.21,
+        "edm": 26.58
+      }
+    },
+    {
+      "label": "41-60",
+      "total": 9717,
+      "counts": {
+        "pop": 1477,
+        "rap": 2162,
+        "rock": 1414,
+        "latin": 1580,
+        "r&b": 1446,
+        "edm": 1638
+      },
+      "shares": {
+        "pop": 15.2,
+        "rap": 22.25,
+        "rock": 14.55,
+        "latin": 16.26,
+        "r&b": 14.88,
+        "edm": 16.86
+      }
+    },
+    {
+      "label": "61-80",
+      "total": 7602,
+      "counts": {
+        "pop": 1690,
+        "rap": 1248,
+        "rock": 1356,
+        "latin": 1404,
+        "r&b": 1168,
+        "edm": 736
+      },
+      "shares": {
+        "pop": 22.23,
+        "rap": 16.42,
+        "rock": 17.84,
+        "latin": 18.47,
+        "r&b": 15.36,
+        "edm": 9.68
+      }
+    },
+    {
+      "label": "81-100",
+      "total": 1340,
+      "counts": {
+        "pop": 356,
+        "rap": 154,
+        "rock": 54,
+        "latin": 363,
+        "r&b": 283,
+        "edm": 130
+      },
+      "shares": {
+        "pop": 26.57,
+        "rap": 11.49,
+        "rock": 4.03,
+        "latin": 27.09,
+        "r&b": 21.12,
+        "edm": 9.7
+      }
+    }
+  ],
+  "sankey": {
+    "nodeCount": 30,
+    "linkCount": 24,
+    "links": [
+      {
+        "source": "edm",
+        "target": "progressive electro house",
+        "value": 1809
+      },
+      {
+        "source": "rap",
+        "target": "southern hip hop",
+        "value": 1675
+      },
+      {
+        "source": "pop",
+        "target": "indie poptimism",
+        "value": 1672
+      },
+      {
+        "source": "latin",
+        "target": "latin hip hop",
+        "value": 1656
+      },
+      {
+        "source": "r&b",
+        "target": "neo soul",
+        "value": 1637
+      },
+      {
+        "source": "edm",
+        "target": "pop edm",
+        "value": 1517
+      },
+      {
+        "source": "edm",
+        "target": "electro house",
+        "value": 1511
+      },
+      {
+        "source": "rock",
+        "target": "hard rock",
+        "value": 1485
+      },
+      {
+        "source": "rap",
+        "target": "gangster rap",
+        "value": 1458
+      },
+      {
+        "source": "pop",
+        "target": "electropop",
+        "value": 1408
+      },
+      {
+        "source": "r&b",
+        "target": "urban contemporary",
+        "value": 1405
+      },
+      {
+        "source": "rap",
+        "target": "hip hop",
+        "value": 1322
+      },
+      {
+        "source": "pop",
+        "target": "dance pop",
+        "value": 1298
+      },
+      {
+        "source": "rock",
+        "target": "classic rock",
+        "value": 1296
+      },
+      {
+        "source": "rap",
+        "target": "trap",
+        "value": 1291
+      },
+      {
+        "source": "latin",
+        "target": "tropical",
+        "value": 1288
+      },
+      {
+        "source": "latin",
+        "target": "latin pop",
+        "value": 1262
+      },
+      {
+        "source": "r&b",
+        "target": "hip pop",
+        "value": 1256
+      },
+      {
+        "source": "edm",
+        "target": "big room",
+        "value": 1206
+      },
+      {
+        "source": "r&b",
+        "target": "new jack swing",
+        "value": 1133
+      },
+      {
+        "source": "pop",
+        "target": "post-teen pop",
+        "value": 1129
+      },
+      {
+        "source": "rock",
+        "target": "permanent wave",
+        "value": 1105
+      },
+      {
+        "source": "rock",
+        "target": "album rock",
+        "value": 1065
+      },
+      {
+        "source": "latin",
+        "target": "reggaeton",
+        "value": 949
+      }
+    ]
+  },
+  "sensitivity": {
+    "rowsKept": 32828,
+    "avgDeltaByGenre": {
+      "pop": 0.0,
+      "rap": 0.023,
+      "rock": 0.0,
+      "latin": 0.018,
+      "r&b": 0.0,
+      "edm": 0.0
+    },
+    "maxAbsDelta": 0.023,
+    "rankUnchanged": true
+  }
+}
