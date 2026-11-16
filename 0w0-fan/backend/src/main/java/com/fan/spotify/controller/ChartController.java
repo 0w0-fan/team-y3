@@ -15,7 +15,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 六张图表的数据接口。全部读 artist_track_view，口径写死在 ChartService。
+ * 图表数据接口（8 个只读接口）。
+ *
+ * <p>全部读同一个视图 {@code artist_track_view}（28,356 行，已在库内按 track_id 去重），
+ * 口径写死在 {@link ChartService}，Controller 只做参数兜底与转发，不含业务逻辑。
+ *
+ * <p>对应页面上 7 个图表容器（见 index.html 的 chart-* 元素）：
+ * <ul>
+ *   <li>{@code chart-custom} —— 可配置图表，复用页面 5 个维度的数据接口，无独立接口</li>
+ *   <li>{@code chart-trend}  —— 图 7 逐年趋势</li>
+ *   <li>{@code chart-dist}   —— 图 2 作品数长尾分布</li>
+ *   <li>{@code chart-top}    —— 图 3 平均热度 TOP N</li>
+ *   <li>{@code chart-album}  —— 图 4 专辑曲目数分箱</li>
+ *   <li>{@code chart-scatter}—— 图 1 四象限散点（主视觉）</li>
+ *   <li>{@code chart-span}   —— 图 5 活跃年份跨度</li>
+ * </ul>
+ * 图 6（热度×时长全量散点）的接口保留但页面已不渲染，见 {@link #songScatter()} 注释。
  */
 @RestController
 @RequestMapping("/api")
@@ -80,8 +95,11 @@ public class ChartController {
 
     /**
      * 图 5 歌手活跃年份跨度 TOP N。
-     * GET /api/artist/span?limit=20
-     * @param limit 榜单长度，默认 20
+     *
+     * <p>页面容器 {@code #chart-span}。x 轴是 [minYear, maxYear] 区间条，
+     * 只有作品数 ≥ 3 且两个年份都非空的歌手才进榜。
+     *
+     * @param limit 榜单长度，默认 20（上限 100，见 ChartService#normalizeLimit）
      */
     @GetMapping("/artist/span")
     public List<ArtistSpan> span(@RequestParam(name = "limit", defaultValue = "20") int limit) {
@@ -89,10 +107,13 @@ public class ChartController {
     }
 
     /**
-     * 图 7 逐年歌曲数 x 平均热度（v2 新增）。
-     * GET /api/year/trend?from=1957&to=2019
-     * @param from 起始年份，可空（默认 1957）
-     * @param to   结束年份，可空（默认 2019，见数据字典的 2020 年截断说明）
+     * 图 7 逐年歌曲数 x 平均热度（v2 新增，非课程原要求）。
+     *
+     * <p>页面容器 {@code #chart-trend}。默认区间 1957–2019：
+     * 2020 年只有 785 行，是数据抓取时点的截断，放进来会让趋势线断崖式下跌。
+     *
+     * @param from 起始年份，可空（默认 1957；小于 1900 按 1957 处理）
+     * @param to   结束年份，可空（默认 2019；大于 2100 按 2019 处理）
      */
     @GetMapping("/year/trend")
     public Map<String, Object> yearTrend(@RequestParam(name = "from", required = false) Integer from,
@@ -102,7 +123,12 @@ public class ChartController {
 
     /**
      * 图 6 热度 x 时长全量散点。
-     * GET /api/song/scatter
+     *
+     * <p>页面容器 {@code #chart-scatter}。一次返回 28,356 个点（JSON 约 502 KB，实测 0.13 秒），
+     * 前端用 ECharts 的 large + progressive 渲染，否则 2.8 万个点会拖卡。
+     *
+     * <p>注意：这是课程原要求的第 6 张图，与「图 7 逐年趋势」（v2 新增）不是同一张。
+     *
      * @return {"total":28356, "points":[...]}
      */
     @GetMapping("/song/scatter")
